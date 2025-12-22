@@ -38,6 +38,7 @@ const Home = () => {
           <div className="collapse navbar-collapse d-none d-lg-block">
             <ul className="navbar-nav ms-auto me-3 fw-semibold">
               <li className="nav-item"><a className="nav-link mx-2" href="#features">기능 소개</a></li>
+              <li className="nav-item"><a className="nav-link mx-2" href="#analysis">문서 분석</a></li>
               <li className="nav-item"><a className="nav-link mx-2" href="#aibot">AI 비서</a></li>
               <li className="nav-item"><a className="nav-link mx-2" href="#checklist">체크리스트</a></li>
             </ul>
@@ -136,8 +137,19 @@ const Home = () => {
           </span>
           <h1 className="display-4 fw-extrabold mb-4 lh-base text-dark">
             계약서, 등기부등본 찍는 순간<br />
-            <span style={{ color: '#10b981', textDecoration: 'underline' }}>AI가 숨은 위험</span>을 찾아냅니다.
+            <span
+              style={{
+                color: '#dc2626',            // 빨간색
+                fontSize: '1.3em',           // 글자 크기 증가
+                fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
+                borderBottom: '4px solid #dc2626', // 얇고 부드러운 라인
+              }}
+            >
+              AI가 숨은 위험
+            </span>
+            을 찾아냅니다.
           </h1>
+
           <p className="lead text-secondary mb-5 mx-auto fw-medium" style={{ maxWidth: '600px' }}>
             부동산 사무실에서 바로 확인하세요.<br />
             어려운 법률 용어와 특약 사항을 인공지능이 즉시 분석해 드립니다.
@@ -277,7 +289,7 @@ const Home = () => {
           <div className="row g-4">
             {/* 브랜드 섹션 */}
             <div className="col-md-6 mb-4 mb-md-0">
-              <h3 className="fw-bold mb-3 d-flex align-items-center" style={{ color: '#059669' }}>
+              <h3 className="fw-bold mb-3 d-flex align-items-center justify-content-center" style={{ color: '#059669' }}>
                 <Scan className="me-2" /> 홈스캐너
               </h3>
               <p className="text-secondary small">
