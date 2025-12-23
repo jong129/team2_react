@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
-import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch } from 'lucide-react';
+import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch, MessageCircle } from 'lucide-react';
 
 const Home = () => {
   // 로그인 상태 관리 (테스트를 위해 기본값 false)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // 챗봇 창 열림/닫힘 상태 관리
+  const [isChatOpen, setIsChatOpen] = useState(false);
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -12,6 +15,15 @@ const Home = () => {
       alert(`'${actionName}' 기능은 로그인이 필요합니다. 로그인 페이지로 이동합니다.`);
       // window.location.href = "/login"; 
     }
+  };
+
+  // 챗봇 토글 함수
+  const toggleChat = () => {
+    if (!isLoggedIn) {
+      alert("AI 비서 기능은 로그인이 필요합니다.");
+      return;
+    }
+    setIsChatOpen(!isChatOpen);
   };
 
   return (
@@ -283,6 +295,68 @@ const Home = () => {
         </div>
       </section>
 
+      {/* 3. Floating AI Chatbot Button */}
+      <div className="fixed-bottom d-flex justify-content-end p-4" style={{ zIndex: 1050, pointerEvents: 'none' }}>
+        <button
+          onClick={toggleChat}
+          className="btn btn-emerald rounded-circle shadow-lg d-flex align-items-center justify-content-center hover-scale"
+          style={{ 
+            width: '64px', 
+            height: '64px', 
+            pointerEvents: 'auto',
+            backgroundColor: isChatOpen ? '#1e293b' : '#059669', // 열려있을 때 색상 변경
+            border: 'none'
+          }}
+        >
+          {isChatOpen ? <X size={32} color="white" /> : <MessageCircle size={32} color="white" />}
+        </button>
+      </div>
+
+      {/* 4. AI Chatbot Window (간이 구현) */}
+      {isChatOpen && (
+        <div 
+          className="card shadow-2xl border-0 animate-in fade-in slide-in-from-bottom-4 duration-300"
+          style={{
+            position: 'fixed',
+            bottom: '100px',
+            right: '24px',
+            width: '350px',
+            height: '500px',
+            zIndex: 1050,
+            borderRadius: '24px',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden'
+          }}
+        >
+          <div className="p-3 text-white d-flex align-items-center justify-content-between" style={{ backgroundColor: '#059669' }}>
+            <div className="d-flex align-items-center">
+              <MessageSquareText size={20} className="me-2" />
+              <span className="fw-bold">홈스캐너 AI 비서</span>
+            </div>
+            <button onClick={() => setIsChatOpen(false)} className="btn btn-link text-white p-0"><X size={20} /></button>
+          </div>
+          
+          <div className="flex-grow-1 p-3 bg-light overflow-auto" style={{ fontSize: '0.9rem' }}>
+            <div className="bg-white p-3 rounded-4 mb-2 shadow-sm" style={{ maxWidth: '85%' }}>
+              안녕하세요! 무엇을 도와드릴까요?
+            </div>
+            <div className="bg-white p-3 rounded-4 mb-2 shadow-sm" style={{ maxWidth: '85%' }}>
+              부동산 계약서나 등기부등본 분석 결과에 대해 궁금한 점을 물어보세요.
+            </div>
+          </div>
+
+          <div className="p-3 border-top bg-white">
+            <div className="input-group">
+              <input type="text" className="form-control border-0 bg-light rounded-pill-start" placeholder="메시지를 입력하세요..." />
+              <button className="btn btn-emerald rounded-pill-end px-3">
+                <ArrowRight size={18} color="white" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* 6. Footer */}
       <footer className="py-5 bg-white border-top">
         <div className="container">
@@ -364,6 +438,16 @@ const Home = () => {
         .btn-outline-emerald:hover { background-color: #059669; color: white; }
         .hover-scale:hover { transform: scale(1.02); transition: 0.2s; }
         .hover-shadow:hover { box-shadow: 0 1rem 3rem rgba(0,0,0,.1)!important; }
+
+        /* 챗봇 애니메이션용 간단한 클래스 */
+        .animate-in {
+          animation: slideUp 0.3s ease-out forwards;
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+          
       `}</style>
     </div>
   );
