@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch } from 'lucide-react';
 
 const Home = () => {
   // 로그인 상태 관리 (테스트를 위해 기본값 false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('loginMemberId');
+  });
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
@@ -12,6 +13,14 @@ const Home = () => {
       alert(`'${actionName}' 기능은 로그인이 필요합니다. 로그인 페이지로 이동합니다.`);
       // window.location.href = "/login"; 
     }
+  };
+  // 로그아웃 처리 함수
+  const handleLogout = () => {
+    localStorage.removeItem('loginMemberId');
+    localStorage.removeItem('loginLoginId');
+
+    setIsLoggedIn(false);
+    alert('로그아웃되었습니다.');
   };
 
   return (
@@ -44,9 +53,19 @@ const Home = () => {
             </ul>
             <div className="d-flex align-items-center gap-2">
               {isLoggedIn ? (
-                <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => setIsLoggedIn(false)}>로그아웃</button>
+                <button
+                  className="btn btn-sm btn-outline-secondary rounded-pill"
+                  onClick={handleLogout}
+                >
+                  로그아웃
+                </button>
               ) : (
-                <a href="/login" className="btn btn-emerald rounded-pill px-4 fw-bold text-white btn-sm">로그인</a>
+                <a
+                  href="/login"
+                  className="btn btn-emerald rounded-pill px-4 fw-bold text-white btn-sm"
+                >
+                  로그인
+                </a>
               )}
             </div>
           </div>
@@ -71,7 +90,12 @@ const Home = () => {
                   <span className="d-block small text-secondary">반가워요!</span>
                   <span className="fw-bold fs-5">사용자님</span>
                 </div>
-                <button className="btn btn-sm btn-link text-danger text-decoration-none p-0" onClick={() => setIsLoggedIn(false)}>로그아웃</button>
+                <button
+                  className="btn btn-sm btn-link text-danger text-decoration-none p-0"
+                  onClick={handleLogout}
+                >
+                  로그아웃
+                </button>
               </div>
             ) : (
               <div className="text-center">
@@ -329,7 +353,7 @@ const Home = () => {
                     </li>
                     <li className="mb-2">
                       <button
-                        onClick={() => setIsLoggedIn(false)}
+                        onClick={handleLogout}
                         className="btn btn-link p-0 text-decoration-none text-secondary small"
                         style={{ fontSize: '0.875rem' }}
                       >
