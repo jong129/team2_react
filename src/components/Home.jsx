@@ -1,12 +1,22 @@
 import React, { useState } from 'react';
 import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch, MessageCircle } from 'lucide-react';
+import { axiosInstance } from './Tool';
 
 const Home = () => {
   // 로그인 상태 관리 (테스트를 위해 기본값 false)
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(true);
 
   // 챗봇 창 열림/닫힘 상태 관리
   const [isChatOpen, setIsChatOpen] = useState(false);
+  // 챗봇 메시지 상태
+  const [messages, setMessages] = useState([
+    { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
+    { role: "ai", content: "부동산 계약서나 등기부등본 분석 결과에 대해 궁금한 점을 물어보세요." }
+  ]);
+
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -25,6 +35,40 @@ const Home = () => {
     }
     setIsChatOpen(!isChatOpen);
   };
+
+  const askAi = async () => {
+    if (!input.trim()) return;
+
+    const userMessage = { role: "user", content: input };
+    setMessages(prev => [...prev, userMessage]);
+    setInput("");
+    setLoading(true);
+
+    try {
+      const res = await axiosInstance.post("/api/rag/ask", {
+        sessionId: 1,
+        question: input
+      });
+
+      const aiMessage = {
+        role: "ai",
+        content: res.data.answer
+      };
+
+      setMessages(prev => [...prev, aiMessage]);
+
+    } catch (err) {
+      console.error("AI 요청 실패:", err);
+      setMessages(prev => [
+        ...prev,
+        { role: "ai", content: "⚠️ 답변 생성 중 오류가 발생했습니다." }
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
 
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -300,9 +344,9 @@ const Home = () => {
         <button
           onClick={toggleChat}
           className="btn btn-emerald rounded-circle shadow-lg d-flex align-items-center justify-content-center hover-scale"
-          style={{ 
-            width: '64px', 
-            height: '64px', 
+          style={{
+            width: '64px',
+            height: '64px',
             pointerEvents: 'auto',
             backgroundColor: isChatOpen ? '#1e293b' : '#059669', // 열려있을 때 색상 변경
             border: 'none'
@@ -314,7 +358,7 @@ const Home = () => {
 
       {/* 4. AI Chatbot Window (간이 구현) */}
       {isChatOpen && (
-        <div 
+        <div
           className="card shadow-2xl border-0 animate-in fade-in slide-in-from-bottom-4 duration-300"
           style={{
             position: 'fixed',
@@ -336,22 +380,53 @@ const Home = () => {
             </div>
             <button onClick={() => setIsChatOpen(false)} className="btn btn-link text-white p-0"><X size={20} /></button>
           </div>
-          
-          <div className="flex-grow-1 p-3 bg-light overflow-auto" style={{ fontSize: '0.9rem' }}>
-            <div className="bg-white p-3 rounded-4 mb-2 shadow-sm" style={{ maxWidth: '85%' }}>
-              안녕하세요! 무엇을 도와드릴까요?
+
+          <div className="flex-grow-1 p-3 bg-light overflow-auto" style={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column' }}>
+            <div className="flex-grow-1 p-3 bg-light overflow-auto">
+              {messages.map((msg, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 rounded-4 mb-2 shadow-sm"
+                  style={{
+                    maxWidth: "85%",
+                    alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
+                    backgroundColor: msg.role === "user" ? "#059669" : "#ffffff",
+                    color: msg.role === "user" ? "white" : "black"
+                  }}
+                >
+                  {msg.content}
+                </div>
+              ))}
+
+              {loading && (
+                <div className="p-3 rounded-4 bg-white shadow-sm">
+                  AI가 답변을 생성 중입니다...
+                </div>
+              )}
             </div>
-            <div className="bg-white p-3 rounded-4 mb-2 shadow-sm" style={{ maxWidth: '85%' }}>
-              부동산 계약서나 등기부등본 분석 결과에 대해 궁금한 점을 물어보세요.
-            </div>
+
+            
           </div>
 
           <div className="p-3 border-top bg-white">
             <div className="input-group">
-              <input type="text" className="form-control border-0 bg-light rounded-pill-start" placeholder="메시지를 입력하세요..." />
-              <button className="btn btn-emerald rounded-pill-end px-3">
+              <input
+                type="text"
+                className="form-control border-0 bg-light"
+                placeholder="메시지를 입력하세요..."
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && askAi()}
+              />
+
+              <button
+                className="btn btn-emerald"
+                onClick={askAi}
+                disabled={loading}
+              >
                 <ArrowRight size={18} color="white" />
               </button>
+
             </div>
           </div>
         </div>
