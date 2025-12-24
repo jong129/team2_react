@@ -37,26 +37,27 @@ const Home = () => {
   };
 
   const askAi = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || loading) return;
 
-    const userMessage = { role: "user", content: input };
-    setMessages(prev => [...prev, userMessage]);
+    const question = input.trim();
+    setMessages(prev => [...prev, { role: "user", content: question }]);
     setInput("");
     setLoading(true);
 
     try {
       const res = await axiosInstance.post("/api/rag/ask", {
         sessionId: 1,
-        question: input
+        question
       });
 
-      const aiMessage = {
-        role: "ai",
-        content: res.data.answer
-      };
-
-      setMessages(prev => [...prev, aiMessage]);
-
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "ai",
+          content: res.data.answer ?? "(답변이 비어있습니다)",
+          references: res.data.references ?? []
+        }
+      ]);
     } catch (err) {
       console.error("AI 요청 실패:", err);
       setMessages(prev => [
@@ -67,6 +68,7 @@ const Home = () => {
       setLoading(false);
     }
   };
+
 
 
 
@@ -405,7 +407,7 @@ const Home = () => {
               )}
             </div>
 
-            
+
           </div>
 
           <div className="p-3 border-top bg-white">
