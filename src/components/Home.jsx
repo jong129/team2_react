@@ -1,20 +1,12 @@
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch } from 'lucide-react';
-
-const Home = () => {
-  // 로그인 상태 관리 (테스트를 위해 기본값 false)
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('loginMemberId');
-  });
-=======
-import React, { useState } from 'react';
+import React, { useState} from 'react';
 import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch, MessageCircle } from 'lucide-react';
 import { axiosInstance } from './Tool';
 
 const Home = () => {
-  // 로그인 상태 관리 (테스트를 위해 기본값 false)
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  // 로그인 상태 관리
+  const [isLoggedIn, setIsLoggedIn] = useState(() => {
+    return !!localStorage.getItem('loginMemberId');
+  });
 
   // 챗봇 창 열림/닫힘 상태 관리
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -27,8 +19,6 @@ const Home = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
-
->>>>>>> a37649c374a54c262423847f3c3b9f57ff193b49
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
