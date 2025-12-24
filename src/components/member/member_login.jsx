@@ -5,6 +5,7 @@ import './member_login.css';
 
 const API = axios.create({
   baseURL: 'http://localhost:9093',
+  withCredentials: true, // session cookies
 });
 
 const Member_Login = () => {
