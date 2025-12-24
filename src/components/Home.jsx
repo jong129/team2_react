@@ -1,23 +1,21 @@
-<<<<<<< HEAD
-import React, { useState, useEffect } from 'react';
-import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch, MessageCircle } from 'lucide-react';
+import { axiosInstance } from './Tool';
+import { useNavigate, Link } from "react-router-dom";
 
 const Home = () => {
+  const navigate = useNavigate();
   // 로그인 상태 관리 (테스트를 위해 기본값 false)
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!localStorage.getItem('loginMemberId');
   });
-=======
-import React, { useState } from 'react';
-import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch, MessageCircle } from 'lucide-react';
-import { axiosInstance } from './Tool';
-
-const Home = () => {
-  // 로그인 상태 관리 (테스트를 위해 기본값 false)
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
 
   // 챗봇 창 열림/닫힘 상태 관리
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  const [sessionId, setSessionId] = useState(null);
+  const bottomRef = useRef(null);
+
   // 챗봇 메시지 상태
   const [messages, setMessages] = useState([
     { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
@@ -27,8 +25,63 @@ const Home = () => {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
+  useEffect(() => {
+    if (!isChatOpen) return;
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading, isChatOpen]);
 
->>>>>>> a37649c374a54c262423847f3c3b9f57ff193b49
+
+
+  const normalizeRole = (role) => {
+    if (!role) return "ai";
+    const r = role.toLowerCase();
+    if (r === "user") return "user";
+    if (r === "assistant" || r === "ai") return "ai";
+    return role; // 혹시 그대로 쓰는 케이스 대비
+  };
+
+  const normalizeMessages = (serverMessages) => {
+    if (!Array.isArray(serverMessages)) return [];
+    return serverMessages.map(m => ({
+      role: normalizeRole(m.role),
+      content: m.content ?? "",
+      references: m.references ?? []
+    }));
+  };
+
+  const openChatAndLoad = async () => {
+    try {
+      // 1) 최근 세션 id 가져오기(없으면 생성)
+      const sres = await axiosInstance.post("/api/chat/sessions/latest");
+      const sid = sres.data.sessionId;
+      setSessionId(sid);
+
+      // 2) 해당 세션의 메시지 불러오기
+      const mres = await axiosInstance.get(`/api/chat/sessions/${sid}/messages`, {
+        params: { limit: 50 }
+      });
+
+      const loaded = normalizeMessages(mres.data.messages);
+
+      if (loaded.length > 0) {
+        setMessages(loaded);
+      } else {
+        // 첫 대화면 기본 인삿말
+        setMessages([
+          { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
+          { role: "ai", content: "부동산 계약서나 등기부등본 분석 결과에 대해 궁금한 점을 물어보세요." }
+        ]);
+      }
+    } catch (err) {
+      console.error("세션/기록 로드 실패:", err);
+      // 그래도 팝업은 열리게 두되 안내 메시지
+      setMessages(prev => (prev?.length ? prev : [
+        { role: "ai", content: "⚠️ 이전 대화를 불러오지 못했습니다. 새로 대화를 시작할 수 있어요." }
+      ]));
+    }
+  };
+
+
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
@@ -47,16 +100,32 @@ const Home = () => {
   };
 
   // 챗봇 토글 함수
-  const toggleChat = () => {
+  const toggleChat = async () => {
     if (!isLoggedIn) {
       alert("AI 비서 기능은 로그인이 필요합니다.");
       return;
     }
-    setIsChatOpen(!isChatOpen);
+
+    // 닫기
+    if (isChatOpen) {
+      setIsChatOpen(false);
+      return;
+    }
+
+    // 열기
+    setIsChatOpen(true);
+    await openChatAndLoad();
   };
+
 
   const askAi = async () => {
     if (!input.trim() || loading) return;
+
+    if (!sessionId) {
+      // 세션이 아직 로딩 안 됐을 수 있음
+      alert("대화 준비 중입니다. 잠시 후 다시 시도해주세요.");
+      return;
+    }
 
     const question = input.trim();
     setMessages(prev => [...prev, { role: "user", content: question }]);
@@ -65,7 +134,7 @@ const Home = () => {
 
     try {
       const res = await axiosInstance.post("/api/rag/ask", {
-        sessionId: 1,
+        sessionId,      // ✅ 실제 sessionId 사용
         question
       });
 
@@ -89,6 +158,14 @@ const Home = () => {
   };
 
 
+  const goAiPage = (e) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      alert("AI 비서 기능은 로그인이 필요합니다.");
+      return;
+    }
+    navigate("/aibot"); // 전용 페이지
+  };
 
 
   return (
@@ -187,10 +264,17 @@ const Home = () => {
               </a>
             </li>
             <li className="mb-3">
-              <a href="#aibot" className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
+              <Link
+                to="/aibot"
+                className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2"
+                data-bs-dismiss="offcanvas"
+                onClick={(e) => handleProtectedAction(e, "AI 비서 대화")}
+              >
                 <MessageSquareText className="me-3" color="#059669" /> AI 비서 대화
-              </a>
+              </Link>
             </li>
+
+
             <li className="mb-3">
               <a href="#checklist" className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
                 <ClipboardCheck className="me-3" color="#059669" /> 체크리스트
@@ -308,10 +392,13 @@ const Home = () => {
                 AI 비서가 당신의 편에서 알기 쉽게 설명해 드립니다.
               </p>
               <button
-                onClick={(e) => handleProtectedAction(e, 'AI 비서 대화')}
-                className="btn btn-emerald-light btn-lg rounded-pill fw-bold" style={{ backgroundColor: '#059669', border: 'none', color: 'white' }}>
+                onClick={goAiPage}
+                className="btn btn-emerald-light btn-lg rounded-pill fw-bold"
+                style={{ backgroundColor: '#059669', border: 'none', color: 'white' }}
+              >
                 AI 비서와 대화하기 <ArrowRight className="ms-2" size={20} />
               </button>
+
             </div>
             <div className="col-md-7">
               <div className="card border-0 rounded-5 p-3 shadow-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)', transform: 'rotate(-2deg)', maxWidth: '500px', margin: '0 auto' }}>
@@ -439,6 +526,8 @@ const Home = () => {
                   AI가 답변을 생성 중입니다...
                 </div>
               )}
+
+              <div ref={bottomRef} />
             </div>
 
 
@@ -452,7 +541,12 @@ const Home = () => {
                 placeholder="메시지를 입력하세요..."
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && askAi()}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !loading) {
+                    askAi();
+                  }
+                }}
+                disabled={loading}
               />
 
               <button
