@@ -81,7 +81,6 @@ const Home = () => {
     }
   };
 
-
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
