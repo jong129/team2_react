@@ -1,70 +1,158 @@
-import React, { useState } from 'react';
-import { axiosInstance } from './Tool';
-import { Link, useNavigate } from 'react-router-dom'
+import React, { useState } from "react";
+import { UploadCloud, Image as ImageIcon, Scan, FileText } from "lucide-react";
 
-const document = () => {
-    const navigate = useNavigate();
-    const [file, setFile] = useState(null);
+const Document = () => {
+  const [image, setImage] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState(null); // 🔥 분석 결과
 
-    const onSubmit = async (e) => {
-        e.preventDefault();
-        if (!file) return;  // 파일이 없으면 중단
+  // 이미지 선택
+  const handleImageChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
 
-        const formData = new FormData(); // <form> 태그 기능
-        formData.append('file', file);
+    setImage(file);
+    setPreview(URL.createObjectURL(file));
+    setResult(null); // 새 업로드 시 이전 결과 초기화
+  };
 
-        try {
+  // 분석 요청
+  const handleAnalyze = async () => {
+    if (!image) {
+      alert("먼저 문서를 업로드해주세요.");
+      return;
+    }
 
+    setLoading(true);
 
-            const response = await axiosInstance.post(`documents/img_upload`, formData,
-                {
-                    headers: {
-                        'Content-Type': 'multipart/form-data',
-                    },
-                }
-            );
+    try {
+      const formData = new FormData();
+      formData.append("file1MF", image);
+      formData.append("userId", 1);
+      formData.append("docType", "CONTRACT");
+      formData.append("status", "UPLOADED");
 
-            if (response.status === 401) {
-                alert('업로드 권한이 없습니다.\n관리자로 다시 로그인 해주세요.');
-                return;
-            }
+      const res = await fetch("http://localhost:9093/documents/analyze", {
+        method: "POST",
+        body: formData,
+      });
 
-            // if (!response.ok) { // fetch
-            //   alert('업로드에 실패했습니다.\n다시 시도해주세요.');
-            //   return;
-            // }
-            if (response.status !== 200) {
-                alert('업로드에 실패했습니다.\n다시 시도해주세요.');
-                return;
-            }
+      if (!res.ok) throw new Error("분석 실패");
 
+      // 🔥 FastAPI 문자열 / JSON 모두 대응
+      const contentType = res.headers.get("content-type");
+      const data =
+        contentType && contentType.includes("application/json")
+          ? await res.json()
+          : await res.text();
 
-            // const result = await response.text(); // fetch
-            const result = await response.data; // axios
-            console.log('서버 응답:', result);
-            //document.getElementById('panel').innerHTML = result;
+      setResult(data);
+    } catch (err) {
+      console.error(err);
+      alert("문서 분석 중 오류 발생");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-        } catch (err) {
-            console.error('네트워크 오류:', err);
-            alert('네트워크 오류가 발생했습니다.\n다시 시도해주세요.');
+  return (
+    <div className="min-vh-100 bg-light py-5">
+      <div className="container" style={{ maxWidth: "900px" }}>
+        {/* 📄 업로드 카드 */}
+        <div className="card border-0 shadow-lg rounded-5 p-5 mb-4">
+          <h2 className="fw-bold text-center mb-4">📄 문서 업로드</h2>
+
+          <label
+            className="border border-2 border-dashed rounded-4 p-4 text-center w-100 mb-4"
+            style={{ cursor: "pointer", borderColor: "#059669" }}
+          >
+            <input type="file" accept="image/*" hidden onChange={handleImageChange} />
+
+            {!preview ? (
+              <div>
+                <UploadCloud size={48} color="#059669" />
+                <p className="mt-3 fw-semibold">클릭하여 문서 이미지 업로드</p>
+                <p className="text-muted small">(계약서, 등기부등본 등)</p>
+              </div>
+            ) : (
+              <div>
+                <img
+                  src={preview}
+                  alt="미리보기"
+                  className="img-fluid rounded-4 mb-3"
+                  style={{ maxHeight: "300px" }}
+                />
+                <p className="small text-muted">
+                  <ImageIcon size={16} className="me-1" />
+                  이미지 선택 완료
+                </p>
+              </div>
+            )}
+          </label>
+
+          <button
+            onClick={handleAnalyze}
+            disabled={loading}
+            className="btn btn-emerald w-100 rounded-pill py-3 fw-bold text-white d-flex justify-content-center gap-2"
+          >
+            <Scan size={20} />
+            {loading ? "분석 중..." : "문서 분석하기"}
+          </button>
+        </div>
+
+        {/* 📊 분석 리포트 */}
+        {result && (
+          <div className="card border-0 shadow rounded-5 p-5">
+            <h3 className="fw-bold mb-3 d-flex align-items-center gap-2">
+              <FileText /> 문서 분석 리포트
+            </h3>
+
+            <div className="mb-3">
+              <span className="badge bg-success me-2">분석 완료</span>
+              <span className="badge bg-secondary">AI 분석</span>
+            </div>
+
+            <hr />
+
+            {/* 🔍 결과 출력 */}
+            {typeof result === "string" ? (
+              <p className="text-muted" style={{ whiteSpace: "pre-line" }}>
+                {result}
+              </p>
+            ) : (
+              <div>
+                <p>
+                  <strong>위험도:</strong> {result.risk_score}%
+                </p>
+
+                <p>
+                  <strong>요약:</strong> {result.summary}
+                </p>
+
+                <ul>
+                  {result.reasons?.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </div>
+            )}           
+          </div>
+        )}
+      </div>
+
+      {/* 스타일 */}
+      <style>{`
+        .btn-emerald {
+          background-color: #059669;
+          border: none;
         }
-    };
+        .btn-emerald:hover {
+          background-color: #047857;
+        }
+      `}</style>
+    </div>
+  );
+};
 
-    return (
-        <form onSubmit={onSubmit} style={{ textAlign: 'center', margin: '10px' }}>
-            <div id="panel" style={{ marginBottom: '10px' }}></div>
-            <input type="file" onChange={(e) => setFile(e.target.files[0])} style={{ marginBottom: '10px' }}
-            />
-            <div>
-                <button type="submit" className="btn btn-primary" style={{ marginRight: '10px' }}>
-                    업로드
-                </button>
-            </div>
-            <div style={{ marginTop: '5px' }}>
-                <small>(jpg, jpeg, png 파일만 전송 가능합니다.)</small>
-            </div>
-        </form>
-    )
-}
-
-export default document
+export default Document;

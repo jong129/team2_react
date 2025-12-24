@@ -4,7 +4,7 @@ import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, S
 const Home = () => {
   // 로그인 상태 관리 (테스트를 위해 기본값 false)
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-
+a
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
