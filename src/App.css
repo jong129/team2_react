@@ -1,3 +1,6 @@
+/* ===============================
+   1. 기존 프로젝트 기본 설정
+================================ */
 #root {
   max-width: 1280px;
   margin: 0 auto;
@@ -5,99 +8,117 @@
   text-align: center;
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+/* ===============================
+   2. 공통 변수
+================================ */
+:root {
+  --emerald-main: #059669;
+  --emerald-hover: #047857;
+  --emerald-light: #ecfdf5;
+  --emerald-soft: #f0fdf4;
+  --danger-red: #dc2626;
+  --dark-bg: #0F172A;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+/* ===============================
+   3. 전역 설정
+================================ */
+body {
+  font-family: 'Pretendard', 'Noto Sans KR', sans-serif;
+  margin: 0;
+  padding: 0;
 }
 
-.card {
-  padding: 2em;
+/* ===============================
+   4. 버튼
+================================ */
+.btn-emerald {
+  background-color: var(--emerald-main) !important;
+  color: white !important;
+  border: none !important;
+  transition: all 0.3s;
 }
 
-.read-the-docs {
-  color: #888;
+.btn-emerald:hover {
+  background-color: var(--emerald-hover) !important;
+  transform: translateY(-2px);
 }
 
-a:link{  /* 방문전 상태 */
-  text-decoration: none; /* 밑줄 삭제 */
-  color: #555555;
+.btn-outline-emerald {
+  border: 1px solid var(--emerald-main) !important;
+  color: var(--emerald-main) !important;
 }
 
-a:visited{  /* 방문후 상태 */
-  text-decoration: none; /* 밑줄 삭제 */
-  color: #555555;
+.btn-outline-emerald:hover {
+  background-color: var(--emerald-main) !important;
+  color: white !important;
 }
 
-a:hover{  /* A 태그에 마우스가 올라간 상태 */
-  text-decoration: none; /* 밑줄 출력 */
-  color: #7777FF;
+/* ===============================
+   5. 유틸 / 애니메이션
+================================ */
+.hover-scale {
+  transition: transform 0.2s ease;
+}
+.hover-scale:hover {
+  transform: scale(1.02);
 }
 
-a:active{  /* A 태그를 클릭한 상태 */
-  text-decoration: none; /* 밑줄 출력 */
-  color: #7777FF;
+.hover-shadow:hover {
+  box-shadow: 0 1rem 3rem rgba(0,0,0,.1) !important;
 }
 
-li {
-  list-style: none;
+.animate-in {
+  animation: slideUp 0.3s ease-out forwards;
 }
 
-.table_basic {
-  border: solid 1px #AAAAAA; 
-  border-collapse: collapse;
-  margin: 0px auto;
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
-.table_center {
-  width: 70%;
-  border: none; 
-  border-collapse: collapse;
-  margin: 0px auto;
+/* ===============================
+   6. 색상 유틸
+================================ */
+.bg-emerald-light {
+  background-color: var(--emerald-light) !important;
 }
 
-.table_underline {
-  border-top: none;
-  border-right: none;
-  border-bottom: solid 1px #AAAAAA; 
-  border-left: none;
+.bg-emerald-soft {
+  background-color: var(--emerald-soft) !important;
 }
 
-* {
-  font-size: 20px;
-  padding: 0px;
-  margin: 5px 0px;
+.text-emerald {
+  color: var(--emerald-main) !important;
 }
 
-.copyright {
-  position: fixed;
-  bottom: 0;
-  left: 0;
-  width: 100%;
-  text-align: center;
-  background-color: #ffffff;
-  padding: 10px 0px;
-  border-top: 1px solid #eeeeee;
+.bg-dark-custom {
+  background-color: var(--dark-bg) !important;
+}
+
+/* ===============================
+   7. Hero 강조 텍스트
+================================ */
+.highlight-danger {
+  color: var(--danger-red);
+  font-size: 1.3em;
+  font-weight: bold;
+  border-bottom: 4px solid var(--danger-red);
+}
+
+/* ===============================
+   8. 챗봇
+================================ */
+.chatbot-header {
+  background-color: var(--emerald-main);
+  color: white;
+}
+
+.chatbot-user {
+  background-color: var(--emerald-main);
+  color: white;
+}
+
+.chatbot-ai {
+  background-color: #f1f5f9;
 }
