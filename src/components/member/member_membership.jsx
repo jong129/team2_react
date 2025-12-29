@@ -89,7 +89,7 @@ const Member_Membership = () => {
     }
 
     try {
-      const res = await API.post('/email/send', {
+      const res = await API.post('/email/signup/send', {
         email: form.email,
       });
 

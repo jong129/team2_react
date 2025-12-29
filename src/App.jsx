@@ -42,6 +42,7 @@ function App() {
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
           <Route path="/member_findid" element={<Member_FindId />} />
+          
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<AiBotPage />} />
