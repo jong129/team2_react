@@ -19,27 +19,32 @@ function App() {
     return !!localStorage.getItem('loginMemberId');
   });
 
-  // 로그인/로그아웃 시 localStorage가 바뀌면 반영되게(간단 버전)
   useEffect(() => {
-    const onStorage = () => setIsLoggedIn(!!localStorage.getItem('loginMemberId'));
-    window.addEventListener("storage", onStorage);
-    return () => window.removeEventListener("storage", onStorage);
+    const sync = () => setIsLoggedIn(!!localStorage.getItem("loginMemberId"));
+
+    // 처음 1회 동기화
+    sync();
+
+    // ✅ 같은 탭에서도 동작하게 커스텀 이벤트 사용
+    window.addEventListener("auth-change", sync);
+
+    return () => window.removeEventListener("auth-change", sync);
   }, []);
 
   return (
     <BrowserRouter>
       <div style={{ width: '100%' }}>
         <Routes>
-          <Route path='/' element={<Home />} />
+          <Route path='/' element={<Home isLoggedIn={isLoggedIn} />} />
           <Route path='/checklist' element={<ChecklistHome />} />
           <Route path='/checklist/run' element={<ChecklistRun />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
+          <Route path="/member_findid" element={<Member_FindId />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<AiBotPage />} />
-          <Route path="/member_findid" element={<Member_FindId />} />
         </Routes>
 
         {/* ✅ 어디 페이지든 항상 떠있는 미니 챗봇 */}

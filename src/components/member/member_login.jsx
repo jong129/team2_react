@@ -84,6 +84,7 @@ const Member_Login = () => {
           // 🔐 로그인 유지 정보 저장
           localStorage.setItem('loginMemberId', memberId);
           localStorage.setItem('loginLoginId', serverLoginId);
+          window.dispatchEvent(new Event("auth-change"));
 
           // 아이디 저장
           if (saveId) {

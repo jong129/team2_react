@@ -1,19 +1,22 @@
 // src/components/Home.jsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan,
   User, ArrowRight, Menu, X, FileSearch
 } from 'lucide-react';
-
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useLocation } from "react-router-dom";
 
 const Home = () => {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  // ✅ 로그인 상태 (localStorage 기반)
-  const [isLoggedIn, setIsLoggedIn] = useState(() => {
-    return !!localStorage.getItem('loginMemberId');
-  });
+  // ✅ 로그인 상태
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  
+  useEffect(() => {
+    setIsLoggedIn(!!localStorage.getItem('loginMemberId'));
+  }, [location.pathname]);
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -28,6 +31,7 @@ const Home = () => {
   const handleLogout = () => {
     localStorage.removeItem('loginMemberId');
     localStorage.removeItem('loginLoginId');
+    window.dispatchEvent(new Event("auth-change"));
 
     setIsLoggedIn(false);
     alert('로그아웃되었습니다.');
