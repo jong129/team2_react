@@ -197,9 +197,9 @@ const Member_Login = () => {
         </div>
 
         <div className="login-links">
-          <span onClick={() => navigate('/find-id')}>아이디 찾기</span>
+          <span onClick={() => navigate('/member_findid')}>아이디 찾기</span>
           <span>|</span>
-          <span onClick={() => navigate('/find-password')}>비밀번호 찾기</span>
+          <span onClick={() => navigate('/member_findpw')}>비밀번호 찾기</span>
           <span>|</span>
           <Link to="/member_membership">회원가입</Link>
         </div>
