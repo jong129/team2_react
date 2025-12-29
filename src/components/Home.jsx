@@ -1,94 +1,29 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan, User, ArrowRight, Menu, X, LogIn, LogOut, FileSearch, MessageCircle } from 'lucide-react';
-import { axiosInstance } from './Tool';
+// src/components/Home.jsx
+import React, { useState } from 'react';
+import {
+  Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan,
+  User, ArrowRight, Menu, X, FileSearch
+} from 'lucide-react';
+
 import { useNavigate, Link } from "react-router-dom";
 
 const Home = () => {
   const navigate = useNavigate();
-  // 로그인 상태 관리 (테스트를 위해 기본값 false)
+
+  // ✅ 로그인 상태 (localStorage 기반)
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
     return !!localStorage.getItem('loginMemberId');
   });
-
-  // 챗봇 창 열림/닫힘 상태 관리
-  const [isChatOpen, setIsChatOpen] = useState(false);
-
-  const [sessionId, setSessionId] = useState(null);
-  const bottomRef = useRef(null);
-
-  // 챗봇 메시지 상태
-  const [messages, setMessages] = useState([
-    { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
-    { role: "ai", content: "부동산 계약서나 등기부등본 분석 결과에 대해 궁금한 점을 물어보세요." }
-  ]);
-
-  const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    if (!isChatOpen) return;
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, loading, isChatOpen]);
-
-
-
-  const normalizeRole = (role) => {
-    if (!role) return "ai";
-    const r = role.toLowerCase();
-    if (r === "user") return "user";
-    if (r === "assistant" || r === "ai") return "ai";
-    return role; // 혹시 그대로 쓰는 케이스 대비
-  };
-
-  const normalizeMessages = (serverMessages) => {
-    if (!Array.isArray(serverMessages)) return [];
-    return serverMessages.map(m => ({
-      role: normalizeRole(m.role),
-      content: m.content ?? "",
-      references: m.references ?? []
-    }));
-  };
-
-  const openChatAndLoad = async () => {
-    try {
-      // 1) 최근 세션 id 가져오기(없으면 생성)
-      const sres = await axiosInstance.post("/api/chat/sessions/latest");
-      const sid = sres.data.sessionId;
-      setSessionId(sid);
-
-      // 2) 해당 세션의 메시지 불러오기
-      const mres = await axiosInstance.get(`/api/chat/sessions/${sid}/messages`, {
-        params: { limit: 50 }
-      });
-
-      const loaded = normalizeMessages(mres.data.messages);
-
-      if (loaded.length > 0) {
-        setMessages(loaded);
-      } else {
-        // 첫 대화면 기본 인삿말
-        setMessages([
-          { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
-          { role: "ai", content: "부동산 계약서나 등기부등본 분석 결과에 대해 궁금한 점을 물어보세요." }
-        ]);
-      }
-    } catch (err) {
-      console.error("세션/기록 로드 실패:", err);
-      // 그래도 팝업은 열리게 두되 안내 메시지
-      setMessages(prev => (prev?.length ? prev : [
-        { role: "ai", content: "⚠️ 이전 대화를 불러오지 못했습니다. 새로 대화를 시작할 수 있어요." }
-      ]));
-    }
-  };
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
       e.preventDefault();
       alert(`'${actionName}' 기능은 로그인이 필요합니다. 로그인 페이지로 이동합니다.`);
-      // window.location.href = "/login"; 
+      // navigate("/login"); // 원하면 이렇게 강제 이동도 가능
     }
   };
+
   // 로그아웃 처리 함수
   const handleLogout = () => {
     localStorage.removeItem('loginMemberId');
@@ -96,76 +31,28 @@ const Home = () => {
 
     setIsLoggedIn(false);
     alert('로그아웃되었습니다.');
+    navigate('/'); // 홈으로
   };
 
-  // 챗봇 토글 함수
-  const toggleChat = async () => {
-    if (!isLoggedIn) {
-      alert("AI 비서 기능은 로그인이 필요합니다.");
-      return;
-    }
-
-    // 닫기
-    if (isChatOpen) {
-      setIsChatOpen(false);
-      return;
-    }
-
-    // 열기
-    setIsChatOpen(true);
-    await openChatAndLoad();
-  };
-
-
-  const askAi = async () => {
-    if (!input.trim() || loading) return;
-
-    if (!sessionId) {
-      // 세션이 아직 로딩 안 됐을 수 있음
-      alert("대화 준비 중입니다. 잠시 후 다시 시도해주세요.");
-      return;
-    }
-
-    const question = input.trim();
-    setMessages(prev => [...prev, { role: "user", content: question }]);
-    setInput("");
-    setLoading(true);
-
-    try {
-      const res = await axiosInstance.post("/api/rag/ask", {
-        sessionId,      // ✅ 실제 sessionId 사용
-        question
-      });
-
-      setMessages(prev => [
-        ...prev,
-        {
-          role: "ai",
-          content: res.data.answer ?? "(답변이 비어있습니다)",
-          references: res.data.references ?? []
-        }
-      ]);
-    } catch (err) {
-      console.error("AI 요청 실패:", err);
-      setMessages(prev => [
-        ...prev,
-        { role: "ai", content: "⚠️ 답변 생성 중 오류가 발생했습니다." }
-      ]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-
+  // AI 전용 페이지 이동
   const goAiPage = (e) => {
     if (!isLoggedIn) {
       e.preventDefault();
       alert("AI 비서 기능은 로그인이 필요합니다.");
       return;
     }
-    navigate("/aibot"); // 전용 페이지
+    navigate("/aibot");
   };
 
+  // 문서분석 페이지 이동(예시)
+  const goDocument = (e) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      alert("문서 분석 기능은 로그인이 필요합니다.");
+      return;
+    }
+    navigate("/document");
+  };
 
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -187,7 +74,7 @@ const Home = () => {
             <Menu size={28} color="#059669" />
           </button>
 
-          {/* 데스크탑 메뉴 (기존 d-none d-lg-block 유지) */}
+          {/* 데스크탑 메뉴 */}
           <div className="collapse navbar-collapse d-none d-lg-block">
             <ul className="navbar-nav ms-auto me-3 fw-semibold">
               <li className="nav-item"><a className="nav-link mx-2" href="#features">기능 소개</a></li>
@@ -195,6 +82,7 @@ const Home = () => {
               <li className="nav-item"><a className="nav-link mx-2" href="#aibot">AI 비서</a></li>
               <li className="nav-item"><a className="nav-link mx-2" href="#checklist">체크리스트</a></li>
             </ul>
+
             <div className="d-flex align-items-center gap-2">
               {isLoggedIn ? (
                 <button
@@ -257,11 +145,18 @@ const Home = () => {
                 <ShieldAlert className="me-3" color="#059669" /> 기능 소개
               </a>
             </li>
+
             <li className="mb-3">
-              <a href="#analysis" className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
+              <button
+                className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
+                style={{ background: "transparent" }}
+                data-bs-dismiss="offcanvas"
+                onClick={(e) => handleProtectedAction(e, "문서 분석")}
+              >
                 <FileSearch className="me-3" color="#059669" /> 문서 분석
-              </a>
+              </button>
             </li>
+
             <li className="mb-3">
               <Link
                 to="/aibot"
@@ -273,12 +168,12 @@ const Home = () => {
               </Link>
             </li>
 
-
             <li className="mb-3">
               <a href="#checklist" className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
                 <ClipboardCheck className="me-3" color="#059669" /> 체크리스트
               </a>
             </li>
+
             {isLoggedIn && (
               <li className="mt-2 pt-3 border-top">
                 <a href="/mypage" className="d-flex align-items-center text-decoration-none text-primary fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
@@ -295,7 +190,6 @@ const Home = () => {
         </div>
       </div>
 
-
       {/* 2. Hero Section */}
       <section className="py-5 position-relative" style={{ backgroundColor: '#f8fafc' }}>
         <div className="position-absolute top-0 start-0 w-100 h-100"
@@ -310,14 +204,15 @@ const Home = () => {
           <span className="d-inline-block py-1 px-3 rounded-pill bg-white fw-bold shadow-sm mb-4 border" style={{ color: '#059669', borderColor: '#d1fae5' }}>
             📸 부동산 서류, 이제 읽지 말고 찍으세요!
           </span>
+
           <h1 className="display-4 fw-extrabold mb-4 lh-base text-dark">
             계약서, 등기부등본 찍는 순간<br />
             <span
               style={{
-                color: '#dc2626',            // 빨간색
-                fontSize: '1.3em',           // 글자 크기 증가
+                color: '#dc2626',
+                fontSize: '1.3em',
                 fontFamily: "'Pretendard', 'Noto Sans KR', sans-serif",
-                borderBottom: '4px solid #dc2626', // 얇고 부드러운 라인
+                borderBottom: '4px solid #dc2626',
               }}
             >
               AI가 숨은 위험
@@ -332,11 +227,13 @@ const Home = () => {
 
           <div className="d-flex justify-content-center">
             <button
-              onClick={(e) => handleProtectedAction(e, '문서 촬영 분석')}
-              className="btn btn-emerald btn-lg rounded-pill px-5 py-4 fw-bolder shadow-lg d-flex align-items-center hover-scale fs-4 text-white">
+              onClick={goDocument}
+              className="btn btn-emerald btn-lg rounded-pill px-5 py-4 fw-bolder shadow-lg d-flex align-items-center hover-scale fs-4 text-white"
+            >
               <Camera size={32} className="me-3" /> 문서 촬영하고 분석 시작
             </button>
           </div>
+
           <p className="text-muted small mt-3">지원 문서: 등기부등본, 임대차계약서, 건축물대장</p>
         </div>
       </section>
@@ -347,6 +244,7 @@ const Home = () => {
           <div className="text-center mb-5">
             <h2 className="fw-bold display-6">안전한 집을 위한 핵심 도구</h2>
           </div>
+
           <div className="row g-4">
             <div className="col-md-4">
               <div className="card h-100 border-0 shadow-sm p-4 rounded-5 text-center hover-shadow transition-all">
@@ -357,6 +255,7 @@ const Home = () => {
                 <p className="text-secondary mt-3">OCR 기술로 권리 관계와 위험 요소를 1분 안에 분석합니다.</p>
               </div>
             </div>
+
             <div className="col-md-4">
               <div className="card h-100 border-0 shadow-sm p-4 rounded-5 text-center hover-shadow transition-all">
                 <div className="bg-emerald-light text-emerald rounded-circle d-inline-flex align-items-center justify-content-center mb-4 mx-auto" style={{ width: '80px', height: '80px', backgroundColor: '#ecfdf5' }}>
@@ -366,6 +265,7 @@ const Home = () => {
                 <p className="text-secondary mt-3">계약 전후 시기별 맞춤형 체크리스트를 제공합니다.</p>
               </div>
             </div>
+
             <div className="col-md-4">
               <div className="card h-100 border-0 shadow-sm p-4 rounded-5 text-center hover-shadow transition-all">
                 <div className="bg-emerald-light text-emerald rounded-circle d-inline-flex align-items-center justify-content-center mb-4 mx-auto" style={{ width: '80px', height: '80px', backgroundColor: '#ecfdf5' }}>
@@ -390,6 +290,7 @@ const Home = () => {
                 계약 현장에서 모르는 용어가 나왔나요?<br />
                 AI 비서가 당신의 편에서 알기 쉽게 설명해 드립니다.
               </p>
+
               <button
                 onClick={goAiPage}
                 className="btn btn-emerald-light btn-lg rounded-pill fw-bold"
@@ -397,15 +298,18 @@ const Home = () => {
               >
                 AI 비서와 대화하기 <ArrowRight className="ms-2" size={20} />
               </button>
-
             </div>
+
             <div className="col-md-7">
               <div className="card border-0 rounded-5 p-3 shadow-lg" style={{ backgroundColor: 'rgba(255,255,255,0.05)', transform: 'rotate(-2deg)', maxWidth: '500px', margin: '0 auto' }}>
                 <div className="card-body bg-white rounded-4 p-4 text-dark" style={{ height: '380px', display: 'flex', flexDirection: 'column' }}>
                   <div className="d-flex align-items-center mb-4 pb-3 border-bottom">
-                    <div className="bg-emerald text-white rounded-circle p-2 me-3" style={{ backgroundColor: '#059669' }}><MessageSquareText size={20} /></div>
+                    <div className="bg-emerald text-white rounded-circle p-2 me-3" style={{ backgroundColor: '#059669' }}>
+                      <MessageSquareText size={20} />
+                    </div>
                     <h5 className="fw-bold m-0">홈스캐너 AI</h5>
                   </div>
+
                   <div className="d-flex flex-column gap-3 overflow-hidden">
                     <div className="align-self-start p-3 rounded-4 rounded-bottom-0" style={{ maxWidth: '85%', backgroundColor: '#f1f5f9' }}>
                       안녕하세요! 무엇을 도와드릴까요?
@@ -417,6 +321,7 @@ const Home = () => {
                       임대인이 협조하지 않으면 대출 승인이 거절될 수 있기 때문입니다. 이 문구는 임차인의 권리를 보호하는...
                     </div>
                   </div>
+
                   <div className="mt-auto pt-3 border-top text-muted">
                     <div className="input-group">
                       <input type="text" className="form-control border-0 bg-light" placeholder="질문을 입력하세요..." disabled />
@@ -426,6 +331,7 @@ const Home = () => {
                 </div>
               </div>
             </div>
+
           </div>
         </div>
       </section>
@@ -434,6 +340,7 @@ const Home = () => {
       <section id="checklist" className="py-5" style={{ backgroundColor: '#f8fafc' }}>
         <div className="container py-5 text-center">
           <h2 className="fw-bold mb-5">놓치기 쉬운 순간, 체크리스트가 챙겨드려요</h2>
+
           <div className="row justify-content-center g-4">
             <div className="col-md-5 col-lg-4">
               <div className="bg-white p-4 rounded-4 shadow-sm text-start border-top border-4" style={{ borderColor: '#059669 !important' }}>
@@ -446,6 +353,7 @@ const Home = () => {
                 <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#059669', border: '1px solid #059669' }}>전체 보기</a>
               </div>
             </div>
+
             <div className="col-md-5 col-lg-4">
               <div className="bg-white p-4 rounded-4 shadow-sm text-start border-top border-4" style={{ borderColor: '#10b981 !important' }}>
                 <h5 className="fw-bold mb-3">🚚 이사 당일/사후 체크</h5>
@@ -457,115 +365,15 @@ const Home = () => {
                 <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#10b981', border: '1px solid #10b981' }}>전체 보기</a>
               </div>
             </div>
+
           </div>
         </div>
       </section>
-
-      {/* 3. Floating AI Chatbot Button */}
-      <div className="fixed-bottom d-flex justify-content-end p-4" style={{ zIndex: 1050, pointerEvents: 'none' }}>
-        <button
-          onClick={toggleChat}
-          className="btn btn-emerald rounded-circle shadow-lg d-flex align-items-center justify-content-center hover-scale"
-          style={{
-            width: '64px',
-            height: '64px',
-            pointerEvents: 'auto',
-            backgroundColor: isChatOpen ? '#1e293b' : '#059669', // 열려있을 때 색상 변경
-            border: 'none'
-          }}
-        >
-          {isChatOpen ? <X size={32} color="white" /> : <MessageCircle size={32} color="white" />}
-        </button>
-      </div>
-
-      {/* 4. AI Chatbot Window (간이 구현) */}
-      {isChatOpen && (
-        <div
-          className="card shadow-2xl border-0 animate-in fade-in slide-in-from-bottom-4 duration-300"
-          style={{
-            position: 'fixed',
-            bottom: '100px',
-            right: '24px',
-            width: '350px',
-            height: '500px',
-            zIndex: 1050,
-            borderRadius: '24px',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden'
-          }}
-        >
-          <div className="p-3 text-white d-flex align-items-center justify-content-between" style={{ backgroundColor: '#059669' }}>
-            <div className="d-flex align-items-center">
-              <MessageSquareText size={20} className="me-2" />
-              <span className="fw-bold">홈스캐너 AI 비서</span>
-            </div>
-            <button onClick={() => setIsChatOpen(false)} className="btn btn-link text-white p-0"><X size={20} /></button>
-          </div>
-
-          <div className="flex-grow-1 p-3 bg-light overflow-auto" style={{ fontSize: '0.9rem', display: 'flex', flexDirection: 'column' }}>
-            <div className="flex-grow-1 p-3 bg-light overflow-auto">
-              {messages.map((msg, idx) => (
-                <div
-                  key={idx}
-                  className="p-3 rounded-4 mb-2 shadow-sm"
-                  style={{
-                    maxWidth: "85%",
-                    alignSelf: msg.role === "user" ? "flex-end" : "flex-start",
-                    backgroundColor: msg.role === "user" ? "#059669" : "#ffffff",
-                    color: msg.role === "user" ? "white" : "black"
-                  }}
-                >
-                  {msg.content}
-                </div>
-              ))}
-
-              {loading && (
-                <div className="p-3 rounded-4 bg-white shadow-sm">
-                  AI가 답변을 생성 중입니다...
-                </div>
-              )}
-
-              <div ref={bottomRef} />
-            </div>
-
-
-          </div>
-
-          <div className="p-3 border-top bg-white">
-            <div className="input-group">
-              <input
-                type="text"
-                className="form-control border-0 bg-light"
-                placeholder="메시지를 입력하세요..."
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !loading) {
-                    askAi();
-                  }
-                }}
-                disabled={loading}
-              />
-
-              <button
-                className="btn btn-emerald"
-                onClick={askAi}
-                disabled={loading}
-              >
-                <ArrowRight size={18} color="white" />
-              </button>
-
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* 6. Footer */}
       <footer className="py-5 bg-white border-top">
         <div className="container">
           <div className="row g-4">
-            {/* 브랜드 섹션 */}
             <div className="col-md-6 mb-4 mb-md-0">
               <h3 className="fw-bold mb-3 d-flex align-items-center justify-content-center" style={{ color: '#059669' }}>
                 <Scan className="me-2" /> 홈스캐너
@@ -577,34 +385,22 @@ const Home = () => {
               </p>
             </div>
 
-            {/* 서비스 링크 섹션 */}
             <div className="col-6 col-md-3">
               <h6 className="fw-bold mb-3">서비스</h6>
               <ul className="list-unstyled small text-secondary">
-                <li className="mb-2">
-                  <a href="#features" className="text-decoration-none text-secondary">문서 촬영 분석</a>
-                </li>
-                <li className="mb-2">
-                  <a href="#checklist" className="text-decoration-none text-secondary">안심 체크리스트</a>
-                </li>
-                <li className="mb-2">
-                  <a href="#aibot" className="text-decoration-none text-secondary">AI 부동산 비서</a>
-                </li>
+                <li className="mb-2"><a href="#features" className="text-decoration-none text-secondary">문서 촬영 분석</a></li>
+                <li className="mb-2"><a href="#checklist" className="text-decoration-none text-secondary">안심 체크리스트</a></li>
+                <li className="mb-2"><a href="#aibot" className="text-decoration-none text-secondary">AI 부동산 비서</a></li>
               </ul>
             </div>
 
-            {/* 계정/액션 섹션 (로그인 상태에 따라 변화) */}
             <div className="col-6 col-md-3">
               <h6 className="fw-bold mb-3">계정</h6>
               <ul className="list-unstyled small text-secondary">
                 {isLoggedIn ? (
                   <>
-                    <li className="mb-2">
-                      <a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a>
-                    </li>
-                    <li className="mb-2">
-                      <a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a>
-                    </li>
+                    <li className="mb-2"><a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a></li>
+                    <li className="mb-2"><a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a></li>
                     <li className="mb-2">
                       <button
                         onClick={handleLogout}
@@ -617,15 +413,9 @@ const Home = () => {
                   </>
                 ) : (
                   <>
-                    <li className="mb-2">
-                      <a href="/login" className="text-decoration-none text-secondary">로그인</a>
-                    </li>
-                    <li className="mb-2">
-                      <a href="/signup" className="text-decoration-none text-secondary">회원가입</a>
-                    </li>
-                    <li className="mb-2">
-                      <a href="#" className="text-decoration-none text-secondary">고객센터</a>
-                    </li>
+                    <li className="mb-2"><a href="/login" className="text-decoration-none text-secondary">로그인</a></li>
+                    <li className="mb-2"><a href="/signup" className="text-decoration-none text-secondary">회원가입</a></li>
+                    <li className="mb-2"><a href="#" className="text-decoration-none text-secondary">고객센터</a></li>
                   </>
                 )}
               </ul>
@@ -642,16 +432,6 @@ const Home = () => {
         .btn-outline-emerald:hover { background-color: #059669; color: white; }
         .hover-scale:hover { transform: scale(1.02); transition: 0.2s; }
         .hover-shadow:hover { box-shadow: 0 1rem 3rem rgba(0,0,0,.1)!important; }
-
-        /* 챗봇 애니메이션용 간단한 클래스 */
-        .animate-in {
-          animation: slideUp 0.3s ease-out forwards;
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-          
       `}</style>
     </div>
   );
