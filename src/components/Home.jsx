@@ -13,7 +13,7 @@ const Home = () => {
   // ✅ 로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  
+
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem('loginMemberId'));
   }, [location.pathname]);
@@ -354,7 +354,13 @@ const Home = () => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#059669" />건축물대장 위반건축물 여부</li>
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#059669" />임대인 신분증 진위 확인</li>
                 </ul>
-                <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#059669', border: '1px solid #059669' }}>전체 보기</a>
+                <Link
+                  to="/checklist/pre"
+                  className="btn btn-sm rounded-pill mt-2 fw-bold"
+                  style={{ color: '#059669', border: '1px solid #059669' }}
+                >
+                  전체 보기
+                </Link>
               </div>
             </div>
 
