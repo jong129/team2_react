@@ -13,7 +13,7 @@ const Home = () => {
   // ✅ 로그인 상태
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-  
+
   useEffect(() => {
     setIsLoggedIn(!!localStorage.getItem('loginMemberId'));
   }, [location.pathname]);
@@ -39,7 +39,7 @@ const Home = () => {
   };
 
   // AI 전용 페이지 이동
-  const goAiPage = (e) => {
+  const handleAiBotClick = (e) => {
     if (!isLoggedIn) {
       e.preventDefault();
       alert("AI 비서 기능은 로그인이 필요합니다.");
@@ -61,14 +61,14 @@ const Home = () => {
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
 
-      {/* 1. Navigation */}
+      {/* Navigation */}
       <nav className="navbar navbar-expand-lg navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container">
           <a className="navbar-brand fw-bolder fs-3 d-flex align-items-center" href="#" style={{ color: '#059669' }}>
             <Scan className="me-2" /> 홈스캐너
           </a>
 
-          {/* 모바일용 햄버거 버튼 - offcanvas 타겟팅 */}
+          {/* 모바일용 버튼 - offcanvas 타겟팅 */}
           <button
             className="navbar-toggler border-0 p-0"
             type="button"
@@ -83,7 +83,7 @@ const Home = () => {
             <ul className="navbar-nav ms-auto me-3 fw-semibold">
               <li className="nav-item"><a className="nav-link mx-2" href="#features">기능 소개</a></li>
               <li className="nav-item"><a className="nav-link mx-2" href="#analysis">문서 분석</a></li>
-              <li className="nav-item"><a className="nav-link mx-2" href="#aibot">AI 비서</a></li>
+              <li className="nav-item"><a className="nav-link mx-2" onClick={handleAiBotClick} style={{cursor: "pointer"}}>AI 비서</a></li>
               <li className="nav-item"><a className="nav-link mx-2" href="#checklist">체크리스트</a></li>
             </ul>
 
@@ -108,7 +108,7 @@ const Home = () => {
         </div>
       </nav>
 
-      {/* 2. 모바일 전용 사이드바 (Offcanvas) */}
+      {/* 모바일 전용 사이드바 (Offcanvas) */}
       <div className="offcanvas offcanvas-end" tabIndex="-1" id="mobileSidebar" aria-labelledby="mobileSidebarLabel">
         <div className="offcanvas-header border-bottom">
           <h5 className="offcanvas-title fw-bold" id="mobileSidebarLabel" style={{ color: '#059669' }}>
@@ -162,15 +162,17 @@ const Home = () => {
             </li>
 
             <li className="mb-3">
-              <Link
-                to="/aibot"
-                className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2"
+              <button
+                className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2 btn btn-link"
                 data-bs-dismiss="offcanvas"
-                onClick={(e) => handleProtectedAction(e, "AI 비서 대화")}
+                onClick={handleAiBotClick}
+                style={{ width: "100%", textAlign: "left" }}
               >
-                <MessageSquareText className="me-3" color="#059669" /> AI 비서 대화
-              </Link>
+                <MessageSquareText className="me-3" color="#059669" />
+                AI 비서 대화
+              </button>
             </li>
+
 
             <li className="mb-3">
               <a href="#checklist" className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
@@ -194,7 +196,7 @@ const Home = () => {
         </div>
       </div>
 
-      {/* 2. Hero Section */}
+      {/* 메인 기능 */}
       <section className="py-5 position-relative" style={{ backgroundColor: '#f8fafc' }}>
         <div className="position-absolute top-0 start-0 w-100 h-100"
           style={{
@@ -242,7 +244,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 3. Core Features */}
+      {/* 주요 기능 */}
       <section id="features" className="py-5 bg-white">
         <div className="container py-5">
           <div className="text-center mb-5">
@@ -283,7 +285,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 4. AI Chatbot Teaser Section (Dark Mode) */}
+      {/* 4. AI Chatbot Preview */}
       <section id="aibot" className="py-5 text-white overflow-hidden" style={{ backgroundColor: '#0F172A' }}>
         <div className="container py-5">
           <div className="row align-items-center g-5">
@@ -296,7 +298,7 @@ const Home = () => {
               </p>
 
               <button
-                onClick={goAiPage}
+                onClick={handleAiBotClick}
                 className="btn btn-emerald-light btn-lg rounded-pill fw-bold"
                 style={{ backgroundColor: '#059669', border: 'none', color: 'white' }}
               >
@@ -340,7 +342,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 5. Checklist Preview Section */}
+      {/* Checklist Preview */}
       <section id="checklist" className="py-5" style={{ backgroundColor: '#f8fafc' }}>
         <div className="container py-5 text-center">
           <h2 className="fw-bold mb-5">놓치기 쉬운 순간, 체크리스트가 챙겨드려요</h2>
@@ -374,7 +376,7 @@ const Home = () => {
         </div>
       </section>
 
-      {/* 6. Footer */}
+      {/* Footer */}
       <footer className="py-5 bg-white border-top">
         <div className="container">
           <div className="row g-4">

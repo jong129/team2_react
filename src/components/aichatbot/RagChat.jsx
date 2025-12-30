@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import RagReferences from "./RagReferences";
 import { ArrowRight, X, MessageSquareText } from "lucide-react";
+import { axiosInstance } from "../Tool";
 
 const RagChat = ({ isOpen, onClose, sessionId = 1 }) => {
   const [messages, setMessages] = useState([
@@ -26,19 +27,19 @@ const RagChat = ({ isOpen, onClose, sessionId = 1 }) => {
     setLoading(true);
 
     try {
-      const res = await fetch("/api/rag/ask", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId, question })
+      const res = await axiosInstance.post("/api/rag/ask", {
+        sessionId,
+        question
       });
 
-      // ✅ HTTP 에러 처리(404/500 등)
+      // HTTP 에러 처리(404/500 등)
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         throw new Error(`HTTP ${res.status} ${res.statusText} / ${text}`);
       }
 
-      const data = await res.json();
+      // const data = await res.json();
+      const data = res.data;
       // data: { answer, references: [...] }
 
       setMessages(prev => [

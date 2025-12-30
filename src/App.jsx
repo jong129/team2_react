@@ -10,7 +10,7 @@ import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
 import RagChat from './components/aichatbot/RagChat';
 import AiBotPage from "./components/aichatbot/AiBotPage";
-import MiniChatbot from "./components/aichatbot/MiniChatbot";
+import MiniChatbot from "./components/aichatbot/MiniChatBot";
 import { useEffect, useState } from "react"; 
 
 

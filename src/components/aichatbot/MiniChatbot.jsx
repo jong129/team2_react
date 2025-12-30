@@ -1,7 +1,7 @@
 // src/components/aichatbot/MiniChatbot.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { MessageSquareText, X, ArrowRight, MessageCircle } from "lucide-react";
-import { axiosInstance } from "../Tool"; // 경로 주의! (너 프로젝트에 맞게)
+import { axiosInstance } from "../Tool"; 
 
 const DEFAULT_MESSAGES = [
   { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
@@ -42,12 +42,12 @@ export default function MiniChatbot({ isLoggedIn }) {
 
   const openChatAndLoad = async () => {
     try {
-      // 1) 최근 세션 id 가져오기(없으면 생성)
+      // 최근 세션 id 가져오기(없으면 생성)
       const sres = await axiosInstance.post("/api/chat/sessions/latest");
       const sid = sres.data.sessionId;
       setSessionId(sid);
 
-      // 2) 메시지 로드
+      // 메시지 로드
       const mres = await axiosInstance.get(
         `/api/chat/sessions/${sid}/messages`,
         { params: { limit: 50 } }
