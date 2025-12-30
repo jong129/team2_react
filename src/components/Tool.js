@@ -2,7 +2,6 @@ import axios from 'axios';
 
 const getIP = () => {
   return "localhost";
-  // return "121.160.42.46"; // 학원
   // return "121.160.42.13"; // 팀장 학원 주소
 }
 
