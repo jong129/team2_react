@@ -1,20 +1,37 @@
 import React, { useState } from 'react';
-import { API } from '../Tool'; // axiosInstance 또는 API 경로 맞게 수정
+import { axiosInstance } from '../Tool';
 
-const Member_FindPs = () => {
+const Member_FindPw = () => {
+  const [loginId, setLoginId] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState(1); // 1: 이메일 입력, 2: 인증번호 입력
+  const [step, setStep] = useState(1); // 1: 아이디+이메일, 2: 인증번호
   const [message, setMessage] = useState('');
 
   /* ===============================
      1️⃣ 비밀번호 재설정 인증번호 발송
      =============================== */
   const sendResetCode = async () => {
+    setMessage('');
+
+    if (!loginId || !email) {
+      setMessage('아이디와 이메일을 모두 입력하세요.');
+      return;
+    }
+
     try {
-      await API.post('/email/password/send', { email });
-      setMessage('인증번호가 이메일로 발송되었습니다.');
-      setStep(2);
+      const res = await axiosInstance.post('/email/password/send', {
+        loginId,
+        email,
+      });
+
+      // 🔥 핵심: success 여부 반드시 확인
+      if (res.data.success) {
+        setMessage(res.data.message);
+        setStep(2);
+      } else {
+        setMessage(res.data.message);
+      }
     } catch (err) {
       setMessage(
         err.response?.data?.message || '인증번호 발송에 실패했습니다.'
@@ -26,15 +43,27 @@ const Member_FindPs = () => {
      2️⃣ 인증번호 검증
      =============================== */
   const verifyCode = async () => {
+    setMessage('');
+
+    if (!code) {
+      setMessage('인증번호를 입력하세요.');
+      return;
+    }
+
     try {
-      await API.post('/email/verify', {
+      const res = await axiosInstance.post('/email/verify', {
         email,
         code,
       });
 
-      setMessage('이메일 인증이 완료되었습니다.');
-      // 👉 다음 단계:
-      // navigate('/member/reset_password', { state: { email } });
+      if (res.data.success) {
+        setMessage(res.data.message);
+
+        // 🔥 다음 단계 (비밀번호 재설정 페이지로 이동 시 여기서 처리)
+        // navigate('/member/reset_password', { state: { email, loginId } });
+      } else {
+        setMessage(res.data.message);
+      }
     } catch (err) {
       setMessage(
         err.response?.data?.message || '인증번호가 올바르지 않습니다.'
@@ -50,12 +79,22 @@ const Member_FindPs = () => {
         <>
           <div>
             <input
+              type="text"
+              placeholder="아이디 입력"
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <input
               type="email"
               placeholder="가입한 이메일 입력"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
+
           <button onClick={sendResetCode}>
             인증번호 발송
           </button>
@@ -72,6 +111,7 @@ const Member_FindPs = () => {
               onChange={(e) => setCode(e.target.value)}
             />
           </div>
+
           <button onClick={verifyCode}>
             인증번호 확인
           </button>
@@ -87,4 +127,4 @@ const Member_FindPs = () => {
   );
 };
 
-export default Member_FindPs;
+export default Member_FindPw;

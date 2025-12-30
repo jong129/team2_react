@@ -1,12 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import axios from 'axios';
 import './member_login.css';
-
-const API = axios.create({
-  baseURL: 'http://localhost:9093',
-  withCredentials: true, // session cookies
-});
+import { axiosInstance } from '../Tool';
 
 const Member_Login = () => {
   const navigate = useNavigate();
@@ -52,7 +47,7 @@ const Member_Login = () => {
   ================================================== */
   const doLogin = async (id, pw) => {
     try {
-      const res = await API.post(
+      const res = await axiosInstance.post(
         '/member/login',
         null,
         {

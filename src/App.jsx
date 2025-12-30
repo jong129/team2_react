@@ -10,7 +10,9 @@ import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
 import RagChat from './components/aichatbot/RagChat';
 import AiBotPage from "./components/aichatbot/AiBotPage";
-import MiniChatbot from "./components/aichatbot/MiniChatBot";
+import MiniChatbot from "./components/aichatbot/MiniChatbot";
+import Member_FindPw from './components/member/member_findpw';
+import Member_ChangePw from './components/member/member_changepw';
 import { useEffect, useState } from "react"; 
 
 
@@ -43,7 +45,8 @@ function App() {
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
           <Route path="/member_findid" element={<Member_FindId />} />
-
+          <Route path="/member_findpw" element={<Member_FindPw />} />
+          <Route path="/member_changepw" element={<Member_ChangePw />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<AiBotPage />} />
