@@ -3,7 +3,7 @@ import axios from 'axios';
 const getIP = () => {
   // return "localhost";
   // return "121.160.42.46"; // 학원
-  return "1.201.17.110"; // gCloud
+  return "121.160.42.13"; // 팀장 학원 주소
 }
 
 const getCopyright = () => {
@@ -45,7 +45,7 @@ const axiosInstance = axios.create({
     // '': 같은 ip에 Backend 서버가 있다는 가정하에 상대경로로 요청을 보냄.
     // baseURL: import.meta.env.PROD ? '' : 'http://121.160.42.46:9100'
     // baseURL: import.meta.env.PROD ? '' : 'http://1.201.17.110:9093'
-    baseURL: import.meta.env.PROD ? '' : 'http://localhost:9093',
+    baseURL: import.meta.env.PROD ? '' : `http://${getIP()}:9093`,
     withCredentials: true,
 })
 
