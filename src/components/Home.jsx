@@ -1,22 +1,13 @@
 // src/components/Home.jsx
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan,
-  User, ArrowRight, Menu, X, FileSearch
+  User, ArrowRight, Menu, FileSearch
 } from 'lucide-react';
-import { useNavigate, Link, useLocation } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
-const Home = () => {
+const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
-  const location = useLocation();
-
-  // ✅ 로그인 상태
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-
-
-  useEffect(() => {
-    setIsLoggedIn(!!localStorage.getItem('loginMemberId'));
-  }, [location.pathname]);
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -33,19 +24,18 @@ const Home = () => {
     localStorage.removeItem('loginLoginId');
     window.dispatchEvent(new Event("auth-change"));
 
-    setIsLoggedIn(false);
     alert('로그아웃되었습니다.');
     navigate('/'); // 홈으로
   };
 
-  // AI 전용 페이지 이동
+  // ✅ AI 비서 버튼 클릭: 전역 미니챗봇 열기 이벤트 발생
   const handleAiBotClick = (e) => {
     if (!isLoggedIn) {
       e.preventDefault();
       alert("AI 비서 기능은 로그인이 필요합니다.");
       return;
     }
-    navigate("/aibot");
+    window.dispatchEvent(new Event("open-mini-chat"));
   };
 
   // 문서분석 페이지 이동(예시)
@@ -83,7 +73,11 @@ const Home = () => {
             <ul className="navbar-nav ms-auto me-3 fw-semibold">
               <li className="nav-item"><a className="nav-link mx-2" href="#features">기능 소개</a></li>
               <li className="nav-item"><a className="nav-link mx-2" href="#analysis">문서 분석</a></li>
-              <li className="nav-item"><a className="nav-link mx-2" onClick={handleAiBotClick} style={{cursor: "pointer"}}>AI 비서</a></li>
+              <li className="nav-item">
+                <a className="nav-link mx-2" onClick={handleAiBotClick} style={{ cursor: "pointer" }}>
+                  AI 비서
+                </a>
+              </li>
               <li className="nav-item"><a className="nav-link mx-2" href="#checklist">체크리스트</a></li>
             </ul>
 
@@ -173,7 +167,6 @@ const Home = () => {
               </button>
             </li>
 
-
             <li className="mb-3">
               <a href="#checklist" className="d-flex align-items-center text-decoration-none text-dark fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
                 <ClipboardCheck className="me-3" color="#059669" /> 체크리스트
@@ -181,11 +174,30 @@ const Home = () => {
             </li>
 
             {isLoggedIn && (
-              <li className="mt-2 pt-3 border-top">
-                <a href="/mypage" className="d-flex align-items-center text-decoration-none text-primary fw-bold fs-5 p-2" data-bs-dismiss="offcanvas">
-                  <User className="me-3" /> 마이페이지 / 이력관리
-                </a>
-              </li>
+              <>
+                <li className="mt-2 pt-3 border-top">
+                  <a
+                    href="/mypage"
+                    className="d-flex align-items-center text-decoration-none text-primary fw-bold fs-5 p-2"
+                    data-bs-dismiss="offcanvas"
+                  >
+                    <User className="me-3" /> 마이페이지 / 이력관리
+                  </a>
+                </li>
+
+                <li className="mb-2">
+                  <button
+                    type="button"
+                    className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
+                    style={{ background: "transparent" }}
+                    data-bs-dismiss="offcanvas"
+                    onClick={() => navigate("/aibot")}   // ✅ 여기만 있으면 됨
+                  >
+                    <MessageSquareText className="me-3" color="#059669" />
+                    챗봇 대화 내역
+                  </button>
+                </li>
+              </>
             )}
           </ul>
 
@@ -413,6 +425,17 @@ const Home = () => {
                   <>
                     <li className="mb-2"><a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a></li>
                     <li className="mb-2"><a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a></li>
+                    {/* ✅ 챗봇 대화 내역 추가 */}
+                    <li className="mb-2">
+                      <button
+                        type="button"
+                        onClick={() => navigate("/aibot")}
+                        className="btn btn-link p-0 text-decoration-none text-secondary small"
+                        style={{ fontSize: '0.875rem' }}
+                      >
+                        챗봇 대화 내역
+                      </button>
+                    </li>
                     <li className="mb-2">
                       <button
                         onClick={handleLogout}

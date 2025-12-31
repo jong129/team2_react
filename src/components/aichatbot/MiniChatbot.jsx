@@ -1,7 +1,7 @@
-// src/components/aichatbot/MiniChatbot.jsx
+// src/components/aichatbot/MiniChatBot.jsx
 import React, { useEffect, useRef, useState } from "react";
 import { MessageSquareText, X, ArrowRight, MessageCircle } from "lucide-react";
-import { axiosInstance } from "../Tool"; 
+import { axiosInstance } from "../Tool";
 
 const DEFAULT_MESSAGES = [
   { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
@@ -48,13 +48,11 @@ export default function MiniChatbot({ isLoggedIn }) {
       setSessionId(sid);
 
       // 메시지 로드
-      const mres = await axiosInstance.get(
-        `/api/chat/sessions/${sid}/messages`,
-        { params: { limit: 50 } }
-      );
+      const mres = await axiosInstance.get(`/api/chat/sessions/${sid}/messages`, {
+        params: { limit: 50 },
+      });
 
       const loaded = normalizeMessages(mres.data.messages);
-
       setMessages(loaded.length > 0 ? loaded : DEFAULT_MESSAGES);
     } catch (err) {
       console.error("세션/기록 로드 실패:", err);
@@ -63,6 +61,26 @@ export default function MiniChatbot({ isLoggedIn }) {
       ]);
     }
   };
+
+  const openFromEvent = async () => {
+    if (!isLoggedIn) {
+      alert("AI 비서 기능은 로그인이 필요합니다.");
+      return;
+    }
+    setIsChatOpen(true);
+    await openChatAndLoad();
+  };
+
+  // ✅ Home(또는 어디서든) 'open-mini-chat' 이벤트가 오면 챗봇 열기
+  useEffect(() => {
+    const handler = () => {
+      openFromEvent();
+    };
+
+    window.addEventListener("open-mini-chat", handler);
+    return () => window.removeEventListener("open-mini-chat", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]); // isLoggedIn 변경 반영
 
   const toggleChat = async () => {
     if (!isLoggedIn) {
