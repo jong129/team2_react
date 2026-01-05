@@ -369,7 +369,7 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#059669" />임대인 신분증 진위 확인</li>
                 </ul>
                 <Link
-                  to="/checklist/pre"
+                  to="/checklist/"
                   className="btn btn-sm rounded-pill mt-2 fw-bold"
                   style={{ color: '#059669', border: '1px solid #059669' }}
                 >
@@ -386,7 +386,13 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />전입신고 및 확정일자 받기</li>
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />시설물 파손 상태 사진 촬영</li>
                 </ul>
-                <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#10b981', border: '1px solid #10b981' }}>전체 보기</a>
+                <Link
+                  to="/checklist/"
+                  className="btn btn-sm rounded-pill mt-2 fw-bold"
+                  style={{ color: '#059669', border: '1px solid #059669' }}
+                >
+                  전체 보기
+                </Link>
               </div>
             </div>
 
