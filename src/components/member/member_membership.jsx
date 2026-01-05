@@ -1,11 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { axiosInstance } from '../Tool';
 import './member_membership.css';
-
-const API = axios.create({
-  baseURL: 'http://localhost:9093',
-});
 
 const Member_Membership = () => {
   const navigate = useNavigate();
@@ -63,7 +59,7 @@ const Member_Membership = () => {
     }
 
     try {
-      const res = await API.get('/member/check_login_id', {
+      const res = await axiosInstance.get('/member/check_login_id', {
         params: { loginId: form.loginId },
       });
 
@@ -89,7 +85,7 @@ const Member_Membership = () => {
     }
 
     try {
-      const res = await API.post('/email/signup/send', {
+      const res = await axiosInstance.post('/email/signup/send', {
         email: form.email,
       });
 
@@ -114,7 +110,7 @@ const Member_Membership = () => {
     }
 
     try {
-      const res = await API.post('/email/verify', {
+      const res = await axiosInstance.post('/email/verify', {
         email: form.email,
         code: form.emailCode,
       });
@@ -159,7 +155,7 @@ const Member_Membership = () => {
     }
 
     try {
-      const res = await API.post('/member/save', {
+      const res = await axiosInstance.post('/member/save', {
         loginId: form.loginId,
         password: form.password,
         name: form.name,

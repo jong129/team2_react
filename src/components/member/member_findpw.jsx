@@ -1,16 +1,19 @@
 import React, { useState } from 'react';
 import { axiosInstance } from '../Tool';
+import { useNavigate } from 'react-router-dom';
+import './member_findpw.css';
 
 const Member_FindPw = () => {
   const [loginId, setLoginId] = useState('');
   const [email, setEmail] = useState('');
   const [code, setCode] = useState('');
-  const [step, setStep] = useState(1); // 1: 아이디+이메일, 2: 인증번호
+  const [step, setStep] = useState(1);
   const [message, setMessage] = useState('');
+  const navigate = useNavigate();
 
   /* ===============================
-     1️⃣ 비밀번호 재설정 인증번호 발송
-     =============================== */
+     1️⃣ 인증번호 발송
+  =============================== */
   const sendResetCode = async () => {
     setMessage('');
 
@@ -25,10 +28,9 @@ const Member_FindPw = () => {
         email,
       });
 
-      // 🔥 핵심: success 여부 반드시 확인
       if (res.data.success) {
-        setMessage(res.data.message);
         setStep(2);
+        setMessage(res.data.message);
       } else {
         setMessage(res.data.message);
       }
@@ -40,8 +42,8 @@ const Member_FindPw = () => {
   };
 
   /* ===============================
-     2️⃣ 인증번호 검증
-     =============================== */
+     2️⃣ 인증번호 검증 + resetCode 발급
+  =============================== */
   const verifyCode = async () => {
     setMessage('');
 
@@ -51,78 +53,85 @@ const Member_FindPw = () => {
     }
 
     try {
-      const res = await axiosInstance.post('/email/verify', {
+      const verifyRes = await axiosInstance.post('/email/verify', {
         email,
         code,
       });
 
-      if (res.data.success) {
-        setMessage(res.data.message);
-
-        // 🔥 다음 단계 (비밀번호 재설정 페이지로 이동 시 여기서 처리)
-        // navigate('/member/reset_password', { state: { email, loginId } });
-      } else {
-        setMessage(res.data.message);
+      if (!verifyRes.data.success) {
+        setMessage(verifyRes.data.message);
+        return;
       }
+
+      const tokenRes = await axiosInstance.post(
+        '/member/repassword/token',
+        {
+          loginId,
+          email,
+        }
+      );
+
+      const resetCode = tokenRes.data.resetCode;
+
+      navigate('/member_changepw', {
+        state: { loginId, email, resetCode },
+      });
     } catch (err) {
       setMessage(
-        err.response?.data?.message || '인증번호가 올바르지 않습니다.'
+        err.response?.data?.message || '인증 처리 중 오류가 발생했습니다.'
       );
     }
   };
 
   return (
-    <div style={{ maxWidth: '400px', margin: '0 auto' }}>
-      <h2>비밀번호 찾기</h2>
+    <div className="findpw-wrapper">
+      <div className="findpw-card">
+        <h2 className="findpw-title">
+          {step === 1 ? '비밀번호 찾기' : '인증번호 확인'}
+        </h2>
 
-      {step === 1 && (
-        <>
-          <div>
+        {step === 1 && (
+          <>
             <input
+              className="findpw-input"
               type="text"
               placeholder="아이디 입력"
               value={loginId}
               onChange={(e) => setLoginId(e.target.value)}
             />
-          </div>
 
-          <div>
             <input
+              className="findpw-input"
               type="email"
               placeholder="가입한 이메일 입력"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
             />
-          </div>
 
-          <button onClick={sendResetCode}>
-            인증번호 발송
-          </button>
-        </>
-      )}
+            <button className="findpw-btn" onClick={sendResetCode}>
+              인증번호 발송
+            </button>
+          </>
+        )}
 
-      {step === 2 && (
-        <>
-          <div>
+        {step === 2 && (
+          <>
             <input
+              className="findpw-input"
               type="text"
               placeholder="인증번호 입력"
               value={code}
               onChange={(e) => setCode(e.target.value)}
             />
-          </div>
 
-          <button onClick={verifyCode}>
-            인증번호 확인
-          </button>
-        </>
-      )}
+            <button className="findpw-btn" onClick={verifyCode}>
+              인증번호 확인
+            </button>
+          </>
+        )}
 
-      {message && (
-        <p style={{ marginTop: '10px', color: '#555' }}>
-          {message}
-        </p>
-      )}
+        {message && <p className="findpw-message">{message}</p>}
+      </div>
     </div>
   );
 };

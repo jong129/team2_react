@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import { axiosInstance } from '../Tool';
 
 const Member_FindId = () => {
   const navigate = useNavigate();
@@ -27,8 +27,8 @@ const Member_FindId = () => {
     }
 
     try {
-      const res = await axios.post(
-        'http://localhost:9093/member/find_id',
+      const res = await axiosInstance.post(
+        '/member/find_id',
         null,
         {
           params: {
