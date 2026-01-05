@@ -58,7 +58,7 @@ const Member_Login = () => {
         }
       );
 
-      const { cnt, memberId, loginId: serverLoginId } = res.data;
+      const { cnt, memberId, loginId: serverLoginId, name } = res.data;
 
       switch (cnt) {
         case 0:
@@ -79,6 +79,7 @@ const Member_Login = () => {
           // 🔐 로그인 유지 정보 저장
           localStorage.setItem('loginMemberId', memberId);
           localStorage.setItem('loginLoginId', serverLoginId);
+          localStorage.setItem('memberName', name);
           window.dispatchEvent(new Event("auth-change"));
 
           // 아이디 저장

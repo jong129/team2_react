@@ -9,6 +9,19 @@ import { useNavigate, Link } from "react-router-dom";
 const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
 
+  const [memberName, setMemberName] = React.useState(
+    localStorage.getItem("memberName") || "사용자"
+  );
+
+  React.useEffect(() => {
+    const syncName = () => {
+      setMemberName(localStorage.getItem("memberName") || "사용자");
+    };
+
+    window.addEventListener("auth-change", syncName);
+    return () => window.removeEventListener("auth-change", syncName);
+  }, []);
+
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
@@ -22,6 +35,8 @@ const Home = ({ isLoggedIn }) => {
   const handleLogout = () => {
     localStorage.removeItem('loginMemberId');
     localStorage.removeItem('loginLoginId');
+    localStorage.removeItem('memberName');
+
     window.dispatchEvent(new Event("auth-change"));
 
     alert('로그아웃되었습니다.');
@@ -118,7 +133,7 @@ const Home = ({ isLoggedIn }) => {
               <div className="d-flex align-items-center justify-content-between">
                 <div>
                   <span className="d-block small text-secondary">반가워요!</span>
-                  <span className="fw-bold fs-5">사용자님</span>
+                  <span className="fw-bold fs-5">{memberName}님</span>
                 </div>
                 <button
                   className="btn btn-sm btn-link text-danger text-decoration-none p-0"
@@ -369,7 +384,7 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#059669" />임대인 신분증 진위 확인</li>
                 </ul>
                 <Link
-                  to="/checklist/pre"
+                  to="/checklist/"
                   className="btn btn-sm rounded-pill mt-2 fw-bold"
                   style={{ color: '#059669', border: '1px solid #059669' }}
                 >
@@ -386,7 +401,13 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />전입신고 및 확정일자 받기</li>
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />시설물 파손 상태 사진 촬영</li>
                 </ul>
-                <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#10b981', border: '1px solid #10b981' }}>전체 보기</a>
+                <Link
+                  to="/checklist/"
+                  className="btn btn-sm rounded-pill mt-2 fw-bold"
+                  style={{ color: '#059669', border: '1px solid #059669' }}
+                >
+                  전체 보기
+                </Link>
               </div>
             </div>
 

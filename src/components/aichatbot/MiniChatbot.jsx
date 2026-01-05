@@ -1,6 +1,6 @@
 // src/components/aichatbot/MiniChatBot.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { MessageSquareText, X, ArrowRight, MessageCircle } from "lucide-react";
+import { MessageSquareText, X, ArrowRight, MessageCircle, Plus, Trash2 } from "lucide-react";
 import { axiosInstance } from "../Tool";
 
 const DEFAULT_MESSAGES = [
@@ -10,7 +10,7 @@ const DEFAULT_MESSAGES = [
 
 const normalizeRole = (role) => {
   if (!role) return "ai";
-  const r = role.toLowerCase();
+  const r = String(role).toLowerCase();
   if (r === "user") return "user";
   if (r === "assistant" || r === "ai") return "ai";
   return "ai";
@@ -25,10 +25,29 @@ const normalizeMessages = (serverMessages) => {
   }));
 };
 
+// grouped DTO -> flat sessions (최근 목록용)
+const flattenGroupedSessions = (data) => {
+  // AiBotPage에서 쓰는 DTO와 동일 가정: [{date, sessions:[{sessionId,title,...}]}]
+  if (!Array.isArray(data)) return [];
+  const out = [];
+  for (const g of data) {
+    const sessions = Array.isArray(g.sessions) ? g.sessions : (Array.isArray(g.items) ? g.items : []);
+    for (const s of sessions) out.push(s);
+  }
+  return out;
+};
+
 export default function MiniChatbot({ isLoggedIn }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
+
+  // ✅ 현재 세션
   const [sessionId, setSessionId] = useState(null);
 
+  // ✅ 최근 세션 목록 (드롭다운)
+  const [recentSessions, setRecentSessions] = useState([]); // [{sessionId,title,lastMessageAt,...}]
+  const [loadingSessions, setLoadingSessions] = useState(false);
+
+  // ✅ 채팅 상태
   const [messages, setMessages] = useState(DEFAULT_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,20 +59,114 @@ export default function MiniChatbot({ isLoggedIn }) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, isChatOpen]);
 
+  // -----------------------------
+  // API helpers
+  // -----------------------------
+  const loadRecentSessions = async () => {
+    setLoadingSessions(true);
+    try {
+      // ✅ 이미 AiBotPage가 쓰는 endpoint 재사용
+      const res = await axiosInstance.get("/api/chat/sessions/grouped");
+      const flat = flattenGroupedSessions(res.data);
+      // 너무 많으면 UX 안 좋아서 상위 15개만
+      setRecentSessions(flat.slice(0, 15));
+    } catch (e) {
+      console.warn("최근 세션 목록 로드 실패(미니챗):", e);
+      setRecentSessions([]);
+    } finally {
+      setLoadingSessions(false);
+    }
+  };
+
+  const loadMessagesBySession = async (sid) => {
+    const mres = await axiosInstance.get(`/api/chat/sessions/${sid}/messages`, {
+      params: { limit: 50 },
+    });
+    const loaded = normalizeMessages(mres.data.messages);
+    setMessages(loaded.length > 0 ? loaded : DEFAULT_MESSAGES);
+  };
+
+  const ensureLatestSession = async () => {
+    // ✅ 최근 세션 id 가져오기(없으면 생성) - 기존 로직 유지
+    const sres = await axiosInstance.post("/api/chat/sessions/latest");
+    const sid = sres.data.sessionId;
+    setSessionId(sid);
+    return sid;
+  };
+
+  // ✅ "진짜 새 세션" 생성 시도
+  // - 서버에 생성 API가 있으면 그걸 쓰고
+  // - 없으면(404 등) 화면만 새 대화처럼 초기화(fallback)
+  const createNewSession = async () => {
+    try {
+      // 1) 가장 일반적인 생성 엔드포인트들 “순차 시도”
+      //    (백엔드 구현명이 다를 수 있어 현실적으로 이렇게 해두면 편합니다)
+      const candidates = [
+        { method: "post", url: "/api/chat/sessions" },
+        { method: "post", url: "/api/chat/sessions/new" },
+        { method: "post", url: "/api/chat/sessions/create" },
+      ];
+
+      for (const c of candidates) {
+        try {
+          const res = await axiosInstance[c.method](c.url, {});
+          const sid = res?.data?.sessionId ?? res?.data?.id;
+          if (sid != null) {
+            setSessionId(sid);
+            setMessages(DEFAULT_MESSAGES);
+            await loadRecentSessions();
+            return sid;
+          }
+        } catch (err) {
+          // 다음 후보로 계속
+        }
+      }
+
+      // 2) 후보가 전부 실패하면 fallback: 화면만 새 대화처럼
+      setSessionId(null);
+      setMessages(DEFAULT_MESSAGES);
+      alert("⚠️ 서버에 '새 세션 생성 API'가 없어 화면만 새 대화로 초기화했습니다.\n(백엔드에 세션 생성 엔드포인트 추가 시 완전 지원 가능)");
+      return null;
+    } catch (e) {
+      console.error("새 세션 생성 실패:", e);
+      alert("새 대화 시작에 실패했습니다. (서버 로그 확인)");
+      return null;
+    }
+  };
+
+  const deleteCurrentSession = async () => {
+    if (!sessionId) {
+      // fallback 상태(세션 없음)면 그냥 초기화
+      setMessages(DEFAULT_MESSAGES);
+      return;
+    }
+
+    const ok = window.confirm(`현재 대화(세션 #${sessionId})를 삭제할까요?`);
+    if (!ok) return;
+
+    try {
+      // ✅ AiBotPage에서 이미 쓰는 endpoint
+      await axiosInstance.delete(`/api/chat/sessions/${sessionId}`);
+
+      // 삭제 후: 최신 세션으로 이동(없으면 생성)
+      const sid = await ensureLatestSession();
+      await loadMessagesBySession(sid);
+      await loadRecentSessions();
+    } catch (e) {
+      console.error("세션 삭제 실패:", e);
+      alert("삭제에 실패했습니다. (권한/서버 로그 확인)");
+    }
+  };
+
+  // -----------------------------
+  // open/toggle
+  // -----------------------------
   const openChatAndLoad = async () => {
     try {
-      // 최근 세션 id 가져오기(없으면 생성)
-      const sres = await axiosInstance.post("/api/chat/sessions/latest");
-      const sid = sres.data.sessionId;
-      setSessionId(sid);
+      await loadRecentSessions();
 
-      // 메시지 로드
-      const mres = await axiosInstance.get(`/api/chat/sessions/${sid}/messages`, {
-        params: { limit: 50 },
-      });
-
-      const loaded = normalizeMessages(mres.data.messages);
-      setMessages(loaded.length > 0 ? loaded : DEFAULT_MESSAGES);
+      const sid = await ensureLatestSession();
+      await loadMessagesBySession(sid);
     } catch (err) {
       console.error("세션/기록 로드 실패:", err);
       setMessages([
@@ -73,14 +186,11 @@ export default function MiniChatbot({ isLoggedIn }) {
 
   // ✅ Home(또는 어디서든) 'open-mini-chat' 이벤트가 오면 챗봇 열기
   useEffect(() => {
-    const handler = () => {
-      openFromEvent();
-    };
-
+    const handler = () => openFromEvent();
     window.addEventListener("open-mini-chat", handler);
     return () => window.removeEventListener("open-mini-chat", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn]); // isLoggedIn 변경 반영
+  }, [isLoggedIn]);
 
   const toggleChat = async () => {
     if (!isLoggedIn) {
@@ -97,11 +207,17 @@ export default function MiniChatbot({ isLoggedIn }) {
     await openChatAndLoad();
   };
 
+  // -----------------------------
+  // chat
+  // -----------------------------
   const askAi = async () => {
     if (!input.trim() || loading) return;
-    if (!sessionId) {
-      alert("대화 준비 중입니다. 잠시 후 다시 시도해주세요.");
-      return;
+
+    // ✅ sessionId가 없으면(=fallback 새대화) 먼저 최신 세션 확보 후 진행
+    let sid = sessionId;
+    if (!sid) {
+      sid = await ensureLatestSession();
+      await loadRecentSessions();
     }
 
     const question = input.trim();
@@ -111,7 +227,7 @@ export default function MiniChatbot({ isLoggedIn }) {
 
     try {
       const res = await axiosInstance.post("/api/rag/ask", {
-        sessionId,
+        sessionId: sid,
         question,
       });
 
@@ -123,14 +239,26 @@ export default function MiniChatbot({ isLoggedIn }) {
           references: res.data.references ?? [],
         },
       ]);
+
+      // 메시지 쌓였으니 최근 세션 목록도 갱신(너무 자주 싫으면 throttle 가능)
+      await loadRecentSessions();
     } catch (err) {
       console.error("AI 요청 실패:", err);
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: "⚠️ 답변 생성 중 오류가 발생했습니다." },
-      ]);
+      setMessages((prev) => [...prev, { role: "ai", content: "⚠️ 답변 생성 중 오류가 발생했습니다." }]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const changeSession = async (sid) => {
+    if (!sid) return;
+    try {
+      setSessionId(sid);
+      setMessages([{ role: "ai", content: "불러오는 중..." }]);
+      await loadMessagesBySession(sid);
+    } catch (e) {
+      console.error("세션 전환 실패:", e);
+      setMessages([{ role: "ai", content: "⚠️ 대화를 불러오지 못했습니다." }]);
     }
   };
 
@@ -161,8 +289,8 @@ export default function MiniChatbot({ isLoggedIn }) {
             position: "fixed",
             bottom: "100px",
             right: "24px",
-            width: "350px",
-            height: "500px",
+            width: "360px",
+            height: "520px",
             zIndex: 1050,
             borderRadius: "24px",
             display: "flex",
@@ -170,16 +298,85 @@ export default function MiniChatbot({ isLoggedIn }) {
             overflow: "hidden",
           }}
         >
-          <div className="p-3 text-white d-flex align-items-center justify-content-between" style={{ backgroundColor: "#059669" }}>
-            <div className="d-flex align-items-center">
-              <MessageSquareText size={20} className="me-2" />
-              <span className="fw-bold">홈스캐너 AI 비서</span>
+          {/* header */}
+          <div className="p-3 text-white" style={{ backgroundColor: "#059669" }}>
+            {/* 1행: 타이틀 + 닫기 */}
+            <div className="d-flex align-items-center justify-content-between">
+              <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
+                <MessageSquareText size={20} className="me-2" />
+                <span
+                  className="fw-bold"
+                  style={{
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    maxWidth: "220px", // ✅ 폭 제한 (겹침 방지)
+                  }}
+                  title="홈스캐너 AI 비서"
+                >
+                  홈스캐너 AI 비서
+                </span>
+              </div>
+
+              <button
+                onClick={() => setIsChatOpen(false)}
+                className="btn btn-link text-white p-0"
+                title="닫기"
+                style={{ flex: "0 0 auto" }}
+              >
+                <X size={20} />
+              </button>
             </div>
-            <button onClick={() => setIsChatOpen(false)} className="btn btn-link text-white p-0">
-              <X size={20} />
-            </button>
+
+            {/* 2행: 세션 드롭다운 + 버튼들 */}
+            <div className="d-flex align-items-center gap-2 mt-2">
+              <select
+                className="form-select form-select-sm"
+                style={{ flex: 1, borderRadius: 12, minWidth: 0 }}
+                value={sessionId ?? ""}
+                onChange={(e) => changeSession(e.target.value)}
+                title="최근 대화로 이동"
+                disabled={loadingSessions}
+              >
+                <option value="" disabled>
+                  {loadingSessions ? "불러오는 중..." : "세션 선택"}
+                </option>
+                {recentSessions.map((s) => {
+                  const sid = s.sessionId ?? s.id;
+                  const title = s.title || `세션 #${sid}`;
+                  return (
+                    <option key={sid} value={sid}>
+                      {title}
+                    </option>
+                  );
+                })}
+              </select>
+
+              {/* 새 대화 */}
+              <button
+                className="btn btn-sm btn-light"
+                style={{ borderRadius: 12, flex: "0 0 auto" }}
+                onClick={createNewSession}
+                title="새 대화(새 세션)"
+                disabled={loading}
+              >
+                <Plus size={16} />
+              </button>
+
+              {/* 삭제 */}
+              <button
+                className="btn btn-sm btn-light"
+                style={{ borderRadius: 12, flex: "0 0 auto" }}
+                onClick={deleteCurrentSession}
+                title="현재 대화 삭제"
+                disabled={loading}
+              >
+                <Trash2 size={16} />
+              </button>
+            </div>
           </div>
 
+          {/* body */}
           <div className="flex-grow-1 p-3 bg-light overflow-auto" style={{ fontSize: "0.9rem" }}>
             {messages.map((msg, idx) => (
               <div
@@ -190,6 +387,8 @@ export default function MiniChatbot({ isLoggedIn }) {
                   marginLeft: msg.role === "user" ? "auto" : 0,
                   backgroundColor: msg.role === "user" ? "#059669" : "#ffffff",
                   color: msg.role === "user" ? "white" : "black",
+                  whiteSpace: "pre-wrap",
+                  overflowWrap: "anywhere",
                 }}
               >
                 {msg.content}
@@ -204,6 +403,7 @@ export default function MiniChatbot({ isLoggedIn }) {
             <div ref={bottomRef} />
           </div>
 
+          {/* footer input */}
           <div className="p-3 border-top bg-white">
             <div className="input-group">
               <input
