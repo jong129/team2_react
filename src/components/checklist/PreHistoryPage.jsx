@@ -1,22 +1,45 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, FolderOpen, Trash2, CheckCircle2, RefreshCcw } from "lucide-react";
-import { axiosInstance } from "../Tool";  
+import { ArrowLeft, FolderOpen, Trash2, CheckCircle2, RefreshCcw, Search, RotateCcw } from "lucide-react";
+import { axiosInstance } from "../Tool";
 
 export default function PreHistoryPage() {
   const navigate = useNavigate();
 
   const memberId = useMemo(() => Number(localStorage.getItem("loginMemberId")), []);
   const [loading, setLoading] = useState(true);
-  const [busyId, setBusyId] = useState(null); // 버튼 중복 클릭 방지
+  const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
   const [items, setItems] = useState([]);
 
+  // ✅ 검색 필터 상태 (상태/시작일/종료일만)
+  const [statusFilter, setStatusFilter] = useState(""); // "" | "IN_PROGRESS" | "COMPLETED"
+  const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
+  const [toDate, setToDate] = useState(""); // YYYY-MM-DD
+
+  // ✅ 페이징 상태
+  const [page, setPage] = useState(0);     // 현재 페이지 (0-base)
+  const [size] = useState(5);              // 페이지 사이즈 (고정 5)
+  const [pageInfo, setPageInfo] = useState(null); // PageResponseDTO 전체
+
+  const buildParams = () => {
+    const params = { memberId, page, size };
+
+    if (statusFilter) params.status = statusFilter;
+
+    // ✅ LocalDateTime으로 받는 백엔드에 맞춰 시간 붙여서 전송
+    if (fromDate) params.from = `${fromDate}T00:00:00`;
+    if (toDate) params.to = `${toDate}T23:59:59`;
+
+    // ✅ dateType은 안 보냄 (컨트롤러 defaultValue="STARTED"가 알아서 처리)
+    return params;
+  };
+
   const loadHistory = async () => {
     const res = await axiosInstance.get("/checklists/pre/history", {
-      params: { memberId },
+      params: buildParams(),
     });
-    return res.data; // List<SessionHistoryItem>
+    return res.data; // PageResponseDTO
   };
 
   const completeSession = async (sessionId) => {
@@ -26,8 +49,6 @@ export default function PreHistoryPage() {
   };
 
   const deleteSession = async (sessionId) => {
-    // 컨트롤러가 DELETE로 열려있으면 이게 정석
-    // (만약 POST로 열었으면 여기만 post로 바꾸면 됨)
     await axiosInstance.delete(`/checklists/pre/session/${sessionId}`, {
       params: { memberId },
     });
@@ -45,7 +66,8 @@ export default function PreHistoryPage() {
       }
 
       const data = await loadHistory();
-      setItems(Array.isArray(data) ? data : []);
+      setPageInfo(data);
+      setItems(Array.isArray(data?.content) ? data.content : []);
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -61,17 +83,34 @@ export default function PreHistoryPage() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page]);
 
   const openSession = (sessionId) => {
-    // 작성 화면으로 이동(이어하기)
     navigate("/checklist/pre", { state: { sessionId } });
   };
 
   const fmt = (v) => {
     if (!v) return "-";
-    // LocalDateTime이 문자열로 오면 대충 보기 좋게
     return String(v).replace("T", " ").slice(0, 19);
+  };
+
+  const handleSearch = async () => {
+    if (fromDate && toDate && fromDate > toDate) {
+      alert("기간 설정이 올바르지 않습니다.");
+      return;
+    }
+
+    if (page === 0) await refresh();
+    else setPage(0);
+  };
+
+  const handleResetFilters = async () => {
+    setStatusFilter("");
+    setFromDate("");
+    setToDate("");
+
+    if (page === 0) await refresh();
+    else setPage(0);
   };
 
   const handleComplete = async (sessionId) => {
@@ -94,7 +133,7 @@ export default function PreHistoryPage() {
   };
 
   const handleDelete = async (sessionId) => {
-    if (!window.confirm("이 기록을 삭제(숨김)할까요?")) return;
+    if (!window.confirm("이 기록을 삭제할까요?")) return;
 
     try {
       setBusyId(sessionId);
@@ -145,13 +184,69 @@ export default function PreHistoryPage() {
                 </div>
               </div>
 
-              {loading && (
-                <div className="p-4 rounded-4 border text-center bg-white">불러오는 중…</div>
-              )}
+              {/* ✅ 검색 패널 (상태/시작일/종료일만) */}
+              <div className="p-3 p-lg-4 rounded-4 border bg-white mb-4">
+                <div className="row g-3 align-items-end">
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small text-secondary mb-1">상태</label>
+                    <select
+                      className="form-select rounded-4"
+                      value={statusFilter}
+                      onChange={(e) => setStatusFilter(e.target.value)}
+                      disabled={loading}
+                    >
+                      <option value="">전체</option>
+                      <option value="IN_PROGRESS">진행중</option>
+                      <option value="COMPLETED">완료</option>
+                    </select>
+                  </div>
 
-              {!loading && error && (
-                <div className="p-4 rounded-4 border text-danger bg-white">에러: {error}</div>
-              )}
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small text-secondary mb-1">시작일</label>
+                    <input
+                      type="date"
+                      className="form-control rounded-4"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="col-12 col-md-4">
+                    <label className="form-label small text-secondary mb-1">종료일</label>
+                    <input
+                      type="date"
+                      className="form-control rounded-4"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+
+                  <div className="col-12 d-flex gap-2 justify-content-end flex-wrap mt-1">
+                    <button
+                      className="btn btn-sm btn-outline-emerald rounded-pill fw-bold"
+                      onClick={handleSearch}
+                      disabled={loading}
+                    >
+                      <Search size={16} className="me-1" />
+                      검색
+                    </button>
+                    <button
+                      className="btn btn-sm btn-outline-secondary rounded-pill"
+                      onClick={handleResetFilters}
+                      disabled={loading}
+                    >
+                      <RotateCcw size={16} className="me-1" />
+                      초기화
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {loading && <div className="p-4 rounded-4 border text-center bg-white">불러오는 중…</div>}
+
+              {!loading && error && <div className="p-4 rounded-4 border text-danger bg-white">에러: {error}</div>}
 
               {!loading && !error && items.length === 0 && (
                 <div className="p-4 rounded-4 border text-center bg-white">
@@ -181,11 +276,7 @@ export default function PreHistoryPage() {
                           <tr key={it.sessionId}>
                             <td className="fw-bold">#{it.sessionId}</td>
                             <td>
-                              <span
-                                className={`badge rounded-pill ${
-                                  completed ? "bg-success" : "bg-warning text-dark"
-                                }`}
-                              >
+                              <span className={`badge rounded-pill ${completed ? "bg-success" : "bg-warning text-dark"}`}>
                                 {completed ? "완료" : "진행중"}
                               </span>
                             </td>
@@ -228,6 +319,31 @@ export default function PreHistoryPage() {
                       })}
                     </tbody>
                   </table>
+                  {pageInfo && pageInfo.totalPages > 1 && (
+                    <div className="d-flex justify-content-between align-items-center mt-3">
+                      <div className="text-secondary small">
+                        총 {pageInfo.totalElements}건 · {pageInfo.number + 1} / {pageInfo.totalPages} 페이지
+                      </div>
+
+                      <div className="d-flex gap-2">
+                        <button
+                          className="btn btn-sm btn-outline-secondary rounded-pill"
+                          disabled={pageInfo.first || loading}
+                          onClick={() => setPage((p) => Math.max(0, p - 1))}
+                        >
+                          이전
+                        </button>
+
+                        <button
+                          className="btn btn-sm btn-outline-secondary rounded-pill"
+                          disabled={pageInfo.last || loading}
+                          onClick={() => setPage((p) => p + 1)}
+                        >
+                          다음
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

@@ -4,7 +4,7 @@ import axios from 'axios';
 import './member_membership.css';
 
 const API = axios.create({
-  baseURL: 'http://localhost:9093',
+  baseURL: 'http://121.160.42.13:9093',
 });
 
 const Member_Membership = () => {
