@@ -5,6 +5,7 @@ import Home from './components/Home'
 import Document from './components/document/Document';
 import ChecklistHome from './components/checklist/ChecklistHome';
 import PreChecklistPage from './components/checklist/PreChecklistPage';
+import PreHistoryPage from "./components/checklist/PreHistoryPage";
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
@@ -13,7 +14,7 @@ import AiBotPage from "./components/aichatbot/AiBotPage";
 import MiniChatbot from "./components/aichatbot/MiniChatBot";
 import Member_FindPw from './components/member/member_findpw';
 import Member_ChangePw from './components/member/member_changepw';
-import { useEffect, useState } from "react"; 
+import { useEffect, useState } from "react";
 
 
 
@@ -41,6 +42,7 @@ function App() {
           <Route path='/' element={<Home isLoggedIn={isLoggedIn} />} />
           <Route path='/checklist' element={<ChecklistHome />} />
           <Route path='/checklist/pre' element={<PreChecklistPage />} />
+          <Route path="/checklist/history" element={<PreHistoryPage />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
