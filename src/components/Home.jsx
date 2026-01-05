@@ -9,6 +9,19 @@ import { useNavigate, Link } from "react-router-dom";
 const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
 
+  const [memberName, setMemberName] = React.useState(
+    localStorage.getItem("memberName") || "사용자"
+  );
+
+  React.useEffect(() => {
+    const syncName = () => {
+      setMemberName(localStorage.getItem("memberName") || "사용자");
+    };
+
+    window.addEventListener("auth-change", syncName);
+    return () => window.removeEventListener("auth-change", syncName);
+  }, []);
+
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
     if (!isLoggedIn) {
@@ -22,6 +35,8 @@ const Home = ({ isLoggedIn }) => {
   const handleLogout = () => {
     localStorage.removeItem('loginMemberId');
     localStorage.removeItem('loginLoginId');
+    localStorage.removeItem('memberName');
+
     window.dispatchEvent(new Event("auth-change"));
 
     alert('로그아웃되었습니다.');
@@ -118,7 +133,7 @@ const Home = ({ isLoggedIn }) => {
               <div className="d-flex align-items-center justify-content-between">
                 <div>
                   <span className="d-block small text-secondary">반가워요!</span>
-                  <span className="fw-bold fs-5">사용자님</span>
+                  <span className="fw-bold fs-5">{memberName}님</span>
                 </div>
                 <button
                   className="btn btn-sm btn-link text-danger text-decoration-none p-0"
