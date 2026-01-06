@@ -1,0 +1,58 @@
+.findpw-wrapper {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #f5f6f8;
+}
+
+.findpw-card {
+  width: 360px;
+  padding: 32px;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+}
+
+.findpw-title {
+  text-align: center;
+  margin-bottom: 24px;
+}
+
+.findpw-input {
+  height: 44px;
+  margin-bottom: 12px;
+  padding: 0 12px;
+  font-size: 14px;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+}
+
+.findpw-input:focus {
+  outline: none;
+  border-color: #4f46e5;
+}
+
+.findpw-btn {
+  height: 44px;
+  margin-top: 8px;
+  background: #4f46e5;
+  color: #ffffff;
+  font-weight: 600;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.findpw-btn:hover {
+  background: #4338ca;
+}
+
+.findpw-message {
+  margin-top: 12px;
+  text-align: center;
+  font-size: 13px;
+  color: #555;
+}

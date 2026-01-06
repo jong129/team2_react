@@ -307,10 +307,11 @@ export default function PreChecklistPage() {
 
               <p className="text-secondary mb-0 mx-auto fw-medium" style={{ maxWidth: 720 }}>
                 표에서 항목을 체크한 뒤, 아래에서 요약/경고를 확인하세요.
-                {session?.sessionId ? (
-                  <span className="ms-2 small text-muted">(sessionId: {session.sessionId})</span>
-                ) : null}
               </p>
+
+              <div className="mt-2 small text-muted">
+                * 사전 체크리스트는 <b>통합 템플릿 1개</b>로 제공돼요. 새로 작성해도 항목은 같고, <b>기록</b>만 새로 저장됩니다.
+              </div>
             </div>
           </div>
         </div>
@@ -428,11 +429,6 @@ export default function PreChecklistPage() {
                 <button className="btn btn-emerald rounded-pill fw-bold px-4 text-white" disabled={saving} onClick={handleSaveExit}>
                   저장
                 </button>
-              </div>
-
-              <div className="small text-muted mt-3 text-center">
-                <CheckCircle2 size={16} className="me-1" color="#059669" />
-                체크리스트 항목은 DB의 ACTIVE 템플릿 기준으로 자동 노출됩니다.
               </div>
             </div>
           </div>

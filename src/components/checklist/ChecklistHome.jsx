@@ -46,10 +46,9 @@ export default function ChecklistHome() {
     return res.data; // [{ itemId, checkStatus }]
   };
 
-  // ✅ (임시) 기록 보기
+  // ✅ 기록 보기
   const goHistory = () => {
-    // navigate("/checklist/history");
-    alert("체크리스트 기록(완료 이력) 페이지는 다음 단계에서 연결하면 됩니다.");
+    navigate("/checklist/history");
   };
 
   // ✅ PRE “사전 체크 시작” 클릭 시:
@@ -67,16 +66,23 @@ export default function ChecklistHome() {
       setError("");
 
       const sess = await startSession(memberId);
-      setPreSessionId(sess.sessionId);
+      console.log("startSession resp:", sess);
 
-      const statuses = await loadStatuses(sess.sessionId);
-      const hasProgress = Array.isArray(statuses) && statuses.length > 0; // 기록 존재 여부
+      const sid = sess?.sessionId ?? sess?.id ?? sess?.checklistSessionId;
+
+      if (!sid) {
+        throw new Error("startSession 응답에 sessionId가 없습니다. (콘솔 확인)");
+      }
+
+      setPreSessionId(sid);
+
+      const statuses = await loadStatuses(sid);
+      const hasProgress = Array.isArray(statuses) && statuses.length > 0;
 
       if (hasProgress) {
-        setShowPreChoice(true); // ✅ 2버튼 노출
+        setShowPreChoice(true);
       } else {
-        // ✅ 진행 데이터가 없으면 그냥 시작
-        navigate("/checklist/pre", { state: { sessionId: sess.sessionId } });
+        navigate("/checklist/pre", { state: { sessionId: sid } });
       }
     } catch (e) {
       const msg =
@@ -89,6 +95,7 @@ export default function ChecklistHome() {
       setBusy(false);
     }
   };
+
 
   // ✅ 이어서 하기
   const handlePreContinue = async () => {
@@ -205,10 +212,6 @@ export default function ChecklistHome() {
                       기록 보기
                     </button>
                   </div>
-                </div>
-
-                <div className="mt-3 small text-muted">
-                  * “기록 보기”는 완료 이력 리스트/상세 화면을 다음 단계에서 연결하면 됩니다.
                 </div>
               </div>
             </div>
@@ -359,12 +362,6 @@ export default function ChecklistHome() {
                 </div>
               </div>
             </div>
-          </div>
-
-          <div className="mt-4 text-center">
-            <p className="small text-muted mb-0">
-              * 사전 체크리스트는 <b>/checklist/pre</b> 로 이동해 작성합니다.
-            </p>
           </div>
         </div>
       </section>
