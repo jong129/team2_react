@@ -18,7 +18,8 @@ import Member_FindPw from './components/member/member_findpw';
 import Member_ChangePw from './components/member/member_changepw';
 import { useEffect, useState } from "react";
 import AdminDashboard from './components/admin/AdminDashboard';
-
+import AdminLoginHistory from './components/admin/AdminLoginHistory';
+import AdminUserList from './components/admin/AdminUserList';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -52,6 +53,8 @@ function App() {
           <Route path="/member_findpw" element={<Member_FindPw />} />
           <Route path="/member_changepw" element={<Member_ChangePw />} />
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/login_history" element={<AdminLoginHistory />} />
+          <Route path="/admin/userlist" element={<AdminUserList />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />

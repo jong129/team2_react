@@ -43,7 +43,7 @@ const AdminDashboard = () => {
             type="button"
             className="w-100 text-start border-0 shadow-sm rounded-4 p-4"
             style={{ backgroundColor: "#ecfdf5" }}
-            onClick={() => navigate("/admin/members")}
+            onClick={() => navigate("/admin/userlist")}
           >
             <div className="d-flex align-items-center gap-3">
               <div
@@ -57,7 +57,7 @@ const AdminDashboard = () => {
                   회원조회
                 </div>
                 <div className="text-secondary small mt-1">
-                  회원 목록 검색 / 페이징
+                  회원 목록 검색
                 </div>
               </div>
             </div>
@@ -69,7 +69,7 @@ const AdminDashboard = () => {
             type="button"
             className="w-100 text-start border-0 shadow-sm rounded-4 p-4"
             style={{ backgroundColor: "#f8fafc" }}
-            onClick={() => navigate("/admin/login-history")}
+            onClick={() => navigate("/admin/login_history")}
           >
             <div className="d-flex align-items-center gap-3">
               <div
@@ -83,7 +83,7 @@ const AdminDashboard = () => {
                   로그인 이력
                 </div>
                 <div className="text-secondary small mt-1">
-                  기간 조회 / 기간 삭제
+                  기간 조회 
                 </div>
               </div>
             </div>
