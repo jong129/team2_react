@@ -1,8 +1,8 @@
 import axios from 'axios';
 
 const getIP = () => {
-  // return "localhost"; // 개인 주소 넣기
-  return "121.160.42.13"; // 팀장 학원 주소
+  return "localhost"; // 개인 주소 넣기
+  //return "121.160.42.13"; // 팀장 학원 주소
 }
 
 const getCopyright = () => {

@@ -5,6 +5,7 @@ import {
   User, ArrowRight, Menu, FileSearch
 } from 'lucide-react';
 import { useNavigate, Link } from "react-router-dom";
+import { axiosInstance } from "./Tool";
 
 const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
@@ -12,6 +13,7 @@ const Home = ({ isLoggedIn }) => {
   const [memberName, setMemberName] = React.useState(
     localStorage.getItem("memberName") || "사용자"
   );
+  const [isAdmin, setIsAdmin] = React.useState(false); // 관리자
 
   React.useEffect(() => {
     const syncName = () => {
@@ -21,6 +23,36 @@ const Home = ({ isLoggedIn }) => {
     window.addEventListener("auth-change", syncName);
     return () => window.removeEventListener("auth-change", syncName);
   }, []);
+
+  const fetchIsAdmin = async () => {
+    const memberId = localStorage.getItem("loginMemberId");
+
+    if (!isLoggedIn || !memberId) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      // 백엔드: MemberRoleCont -> /member_role/is_admin/{memberId}
+      const res = await axiosInstance.get(`/member_role/is_admin/${memberId}`);
+      setIsAdmin(!!res.data?.isAdmin);
+    } catch (e) {
+      setIsAdmin(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchIsAdmin();
+
+    const syncAuth = () => {
+      setMemberName(localStorage.getItem("memberName") || "사용자");
+      fetchIsAdmin();
+    };
+
+    window.addEventListener("auth-change", syncAuth);
+    return () => window.removeEventListener("auth-change", syncAuth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -98,12 +130,23 @@ const Home = ({ isLoggedIn }) => {
 
             <div className="d-flex align-items-center gap-2">
               {isLoggedIn ? (
-                <button
-                  className="btn btn-sm btn-outline-secondary rounded-pill"
-                  onClick={handleLogout}
-                >
-                  로그아웃
-                </button>
+                <>
+                  {isAdmin && (
+                    <button
+                      className="btn btn-sm btn-outline-emerald rounded-pill"
+                      onClick={() => navigate("/admin/dashboard")}
+                    >
+                      관리자 대시보드
+                    </button>
+                  )}
+
+                  <button
+                    className="btn btn-sm btn-outline-secondary rounded-pill"
+                    onClick={handleLogout}
+                  >
+                    로그아웃
+                  </button>
+                </>
               ) : (
                 <a
                   href="/login"
@@ -113,6 +156,7 @@ const Home = ({ isLoggedIn }) => {
                 </a>
               )}
             </div>
+
           </div>
         </div>
       </nav>
