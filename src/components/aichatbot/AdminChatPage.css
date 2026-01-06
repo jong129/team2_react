@@ -1,0 +1,209 @@
+/* page layout */
+.acp-page {
+  background: #f8fafc;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.acp-container {
+  max-width: 1300px;
+}
+
+/* topbar */
+.acp-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+}
+
+.acp-top-title {
+  color: #0f172a;
+}
+
+.acp-refresh-btn {
+  border-radius: 12px;
+}
+
+.acp-alert {
+  border-radius: 12px;
+}
+
+/* body */
+.acp-body {
+  min-height: 0;
+}
+
+.acp-body-inner {
+  height: 100%;
+}
+
+/* ✅ row/col을 고정 높이 레이아웃으로 */
+.acp-grid {
+  height: 100%;
+  margin-left: 0;
+  margin-right: 0;
+}
+
+.acp-col {
+  height: 100%;
+  min-height: 0;
+}
+
+.acp-col-right {
+  min-width: 0;
+}
+
+/* panel */
+.acp-panel {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* left filters */
+.acp-search-btn {
+  min-width: 88px;
+}
+
+/* left list scroll */
+.acp-left-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* list item */
+.acp-list-item {
+  cursor: pointer;
+  background: white;
+}
+
+.acp-list-item.is-active {
+  background: #ecfdf5;
+}
+
+.acp-minw-0 {
+  min-width: 0;
+}
+
+.acp-session-line {
+  font-size: 14px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.acp-sub-line {
+  font-size: 12px;
+}
+
+.acp-actions {
+  flex: 0 0 auto;
+}
+
+.acp-hard-btn {
+  font-weight: 700;
+}
+
+/* badge */
+.acp-count-badge {
+  background: #0ea5e9;
+  color: #ffffff;
+  font-size: 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  flex: 0 0 auto;
+}
+
+/* highlight mark */
+.acp-mark {
+  background: rgba(250, 204, 21, 0.6);
+  padding: 0 2px;
+  border-radius: 4px;
+}
+
+/* right */
+.acp-right-sub {
+  font-size: 12px;
+}
+
+.acp-chat-area {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  background: #f8fafc;
+}
+
+/* bubbles */
+.acp-bubble-row {
+  width: 100%;
+}
+
+.acp-bubble-row.is-user {
+  justify-content: flex-end;
+}
+
+.acp-bubble-row.is-ai {
+  justify-content: flex-start;
+}
+
+.acp-bubble {
+  max-width: 82%;
+  padding: 12px 14px;
+  border-radius: 18px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  line-height: 1.45;
+}
+
+.acp-bubble-user {
+  background: #059669;
+  color: #ffffff;
+  border: none;
+}
+
+.acp-bubble-ai {
+  background: #ffffff;
+  color: #0f172a;
+  border: 1px solid #eef2f7;
+}
+
+.acp-bubble-time {
+  font-size: 11px;
+  opacity: 0.75;
+}
+
+/* ✅ 화면이 좁아져서(좌/우가 세로로 쌓이는 구간) 전체 스크롤이 필요할 때 */
+@media (max-width: 991.98px) {
+  .acp-page {
+    height: auto;        /* 100vh 고정 해제 */
+    overflow: auto;      /* ✅ 페이지 스크롤 허용 */
+  }
+
+  .acp-body {
+    height: auto !important;  /* 인라인 height(calc...) 무시 */
+  }
+
+  .acp-body-inner,
+  .acp-grid,
+  .acp-col,
+  .acp-panel {
+    height: auto;        /* 패널도 100% 고정 해제 */
+    min-height: 0;
+  }
+
+  /* 좁은 화면에서는 내부 스크롤보다 자연스러운 페이지 스크롤이 좋음 */
+  .acp-left-scroll,
+  .acp-chat-area {
+    overflow: visible;   /* 내부 스크롤 제거(원하면 auto로 바꿔도 됨) */
+  }
+}
+

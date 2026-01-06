@@ -12,7 +12,7 @@ import {
 import "./ChatbotStats.css";
 
 export default function ChatbotStats() {
-  const [tab, setTab] = useState("blocked"); // blocked | autoblock | chunkstats | feedbackstats
+  const [tab, setTab] = useState("feedbackstats"); // blocked | autoblock | chunkstats | feedbackstats
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 

@@ -122,10 +122,15 @@ const Home = ({ isLoggedIn }) => {
               <li className="nav-item"><a className="nav-link mx-2" href="#analysis">문서 분석</a></li>
               <li className="nav-item">
                 <a className="nav-link mx-2" onClick={handleAiBotClick} style={{ cursor: "pointer" }}>
-                  AI 비서
+                  AI 챗봇
                 </a>
               </li>
               <li className="nav-item"><a className="nav-link mx-2" href="#checklist">체크리스트</a></li>
+              <li className="nav-item">
+                <a className="nav-link mx-2" onClick={() => navigate("/aibot")} style={{ cursor: "pointer" }}>
+                  AI 챗봇 대화 내역
+                </a>
+              </li>
             </ul>
 
             <div className="d-flex align-items-center gap-2">
@@ -250,7 +255,7 @@ const Home = ({ isLoggedIn }) => {
                     className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
                     style={{ background: "transparent" }}
                     data-bs-dismiss="offcanvas"
-                    onClick={() => navigate(isAdmin ? "/admin/chat" : "/aibot")}
+                    onClick={() => navigate("/aibot")}
                   >
                     <MessageSquareText className="me-3" color="#059669" />
                     챗봇 대화 내역
@@ -507,7 +512,7 @@ const Home = ({ isLoggedIn }) => {
                     <li className="mb-2">
                       <button
                         type="button"
-                        onClick={() => navigate(isAdmin ? "/admin/chat" : "/aibot")}
+                        onClick={() => navigate("/aibot")}
                         className="btn btn-link p-0 text-decoration-none text-secondary small"
                         style={{ fontSize: '0.875rem' }}
                       >
