@@ -12,6 +12,7 @@ import Member_FindId from './components/member/member_findid';
 import RagChat from './components/aichatbot/RagChat';
 import MemberChatPage from "./components/aichatbot/MemberChatPage";
 import AdminChatPage from './components/aichatbot/AdminChatPage';
+import ChatbotStats from './components/aichatbot/ChatbotStats';
 import MiniChatbot from "./components/aichatbot/MiniChatBot";
 import Member_FindPw from './components/member/member_findpw';
 import Member_ChangePw from './components/member/member_changepw';
@@ -53,7 +54,8 @@ function App() {
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
-          <Route path="/admin/chat" element={<AdminChatPage />} />
+          <Route path="/admin/dashboard" element={<AdminChatPage />} />
+          <Route path="/admin/chatbotstats" element={<ChatbotStats />} />
         </Routes>
 
         {/* ✅ 어디 페이지든 항상 떠있는 미니 챗봇 */}

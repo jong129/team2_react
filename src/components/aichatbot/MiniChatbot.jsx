@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { MessageSquareText, X, ArrowRight, MessageCircle, Plus, Trash2, ThumbsUp, ThumbsDown, RefreshCcw, Copy } from "lucide-react";
 import { axiosInstance } from "../Tool";
-import "./MiniChatBOt.css";
+import "./MiniChatBot.css";
 
 const DEFAULT_MESSAGES = [
   { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
@@ -23,8 +23,15 @@ const normalizeMessages = (serverMessages) => {
     role: normalizeRole(m.role),
     content: m.content ?? "",
     references: m.references ?? [],
+
+    // ✅ 서버가 내려주는 chatId / 집계 / 내 피드백까지 받기
+    chatId: m.chatId ?? m.id ?? m.chat_id ?? null,
+    likeCount: m.likeCount ?? 0,
+    dislikeCount: m.dislikeCount ?? 0,
+    myFeedback: m.myFeedback ?? null,
   }));
 };
+
 
 // grouped DTO -> flat sessions (최근 목록용)
 const flattenGroupedSessions = (data) => {
@@ -162,9 +169,35 @@ export default function MiniChatbot({ isLoggedIn }) {
   };
 
   const copyText = async (text) => {
-    await navigator.clipboard.writeText(text);
-    alert("복사되었습니다!");
+    try {
+      // 1) 최신 API 사용 가능 + 보안 컨텍스트(https/localhost)일 때
+      if (navigator?.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        alert("복사되었습니다!");
+        return;
+      }
+
+      // 2) fallback: execCommand 방식 (구형/권한제한/HTTP에서도 동작하는 경우 많음)
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+
+      if (!ok) throw new Error("execCommand copy failed");
+      alert("복사되었습니다!");
+    } catch (err) {
+      console.error("복사 실패:", err);
+      alert("복사에 실패했습니다. (브라우저 권한/HTTPS 환경을 확인하세요)");
+    }
   };
+
 
   const sendFeedback = async (chatId, liked) => {
     const res = await axiosInstance.post(`/api/chat/messages/${chatId}/feedback`, { liked });

@@ -1,5 +1,5 @@
 // src/components/Home.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan,
   User, ArrowRight, Menu, FileSearch
@@ -9,11 +9,17 @@ import { useNavigate, Link } from "react-router-dom";
 const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
 
-  const [memberName, setMemberName] = React.useState(
+  // 관리자 여부(프로젝트 상황에 맞게 localStorage 키만 맞추면 됨)
+  const isAdmin =
+    localStorage.getItem("role_id") === "ADMIN" ||
+    localStorage.getItem("isAdmin") === "true";
+
+
+  const [memberName, setMemberName] = useState(
     localStorage.getItem("memberName") || "사용자"
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     const syncName = () => {
       setMemberName(localStorage.getItem("memberName") || "사용자");
     };
@@ -35,7 +41,7 @@ const Home = ({ isLoggedIn }) => {
   const handleLogout = () => {
     localStorage.removeItem('loginMemberId');
     localStorage.removeItem('loginLoginId');
-    localStorage.removeItem('loginMemberName');
+    localStorage.removeItem('memberName');
 
     window.dispatchEvent(new Event("auth-change"));
 
@@ -206,12 +212,26 @@ const Home = ({ isLoggedIn }) => {
                     className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
                     style={{ background: "transparent" }}
                     data-bs-dismiss="offcanvas"
-                    onClick={() => navigate("/aibot")}   // ✅ 여기만 있으면 됨
+                    onClick={() => navigate(isAdmin ? "/admin/dashboard" : "/aibot")}
                   >
                     <MessageSquareText className="me-3" color="#059669" />
                     챗봇 대화 내역
                   </button>
                 </li>
+                {isAdmin && (
+                  <li className="mb-2">
+                    <button
+                      type="button"
+                      className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
+                      style={{ background: "transparent" }}
+                      data-bs-dismiss="offcanvas"
+                      onClick={() => navigate("/admin/chatbot")}
+                    >
+                      <MessageSquareText className="me-3" color="#059669" />
+                      챗봇 통계
+                    </button>
+                  </li>
+                )}
               </>
             )}
           </ul>
@@ -438,19 +458,39 @@ const Home = ({ isLoggedIn }) => {
               <ul className="list-unstyled small text-secondary">
                 {isLoggedIn ? (
                   <>
-                    <li className="mb-2"><a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a></li>
-                    <li className="mb-2"><a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a></li>
-                    {/* ✅ 챗봇 대화 내역 추가 */}
+                    <li className="mb-2">
+                      <a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a>
+                    </li>
+                    <li className="mb-2">
+                      <a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a>
+                    </li>
+
+                    {/* ✅ 챗봇 대화 내역 */}
                     <li className="mb-2">
                       <button
                         type="button"
-                        onClick={() => navigate("/aibot")}
+                        onClick={() => navigate(isAdmin ? "/admin/dashboard" : "/aibot")}
                         className="btn btn-link p-0 text-decoration-none text-secondary small"
                         style={{ fontSize: '0.875rem' }}
                       >
                         챗봇 대화 내역
                       </button>
                     </li>
+
+                    {/* ✅ 관리자만 챗봇 통계 */}
+                    {isAdmin && (
+                      <li className="mb-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/admin/chatbot")}
+                          className="btn btn-link p-0 text-decoration-none text-secondary small"
+                          style={{ fontSize: '0.875rem' }}
+                        >
+                          챗봇 통계
+                        </button>
+                      </li>
+                    )}
+
                     <li className="mb-2">
                       <button
                         onClick={handleLogout}
@@ -468,6 +508,7 @@ const Home = ({ isLoggedIn }) => {
                     <li className="mb-2"><a href="#" className="text-decoration-none text-secondary">고객센터</a></li>
                   </>
                 )}
+
               </ul>
             </div>
           </div>

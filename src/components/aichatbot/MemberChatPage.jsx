@@ -16,17 +16,41 @@ const fmtDateTime = (iso) => {
   }
 };
 
-const normalizeGroupedSessions = (data) => {
-  // 서버 DTO 예상: [{ date, sessions:[{sessionId,title,startTime,lastMessageAt}] }]
-  if (!Array.isArray(data)) return [];
-  return data.map((g) => ({
-    date: g.date ?? g.key ?? g.groupKey ?? "",
-    sessions: Array.isArray(g.sessions) ? g.sessions : Array.isArray(g.items) ? g.items : [],
-  }));
+const fmtDateKey = (iso) => {
+  if (!iso) return "";
+  try {
+    const d = new Date(iso);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    return `${y}-${m}-${day}`;
+  } catch {
+    return "";
+  }
+};
+
+const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const renderHighlightedText = (text, keyword, markStyle) => {
+  const t = String(text ?? "");
+  const k = String(keyword ?? "").trim();
+  if (!k || k.length < 2) return t;
+
+  const re = new RegExp(`(${escapeRegExp(k)})`, "gi");
+  const parts = t.split(re);
+
+  return parts.map((p, i) => {
+    const isMatch = i % 2 === 1;
+    if (!isMatch) return <React.Fragment key={i}>{p}</React.Fragment>;
+    return (
+      <mark key={i} style={markStyle}>
+        {p}
+      </mark>
+    );
+  });
 };
 
 const normalizeMessages = (data) => {
-  // 서버 DTO: { sessionId, messages:[{chatId, role, content, createdAt}] }
   const arr = data?.messages;
   if (!Array.isArray(arr)) return [];
   return arr.map((m, idx) => {
@@ -42,7 +66,7 @@ const normalizeMessages = (data) => {
 };
 
 const normalizeSearchGroups = (data) => {
-  // 서버 DTO: [{ date, results:[{sessionId, chatId, role, content, createdAt}] }]
+  // 서버 DTO: [{ date, results:[{sessionId, chatId, role, content, createdAt, (optional) title}] }]
   if (!Array.isArray(data)) return [];
   return data.map((g) => ({
     date: g.date ?? g.key ?? g.groupKey ?? "",
@@ -50,7 +74,7 @@ const normalizeSearchGroups = (data) => {
   }));
 };
 
-// TopBar 높이 자동 측정 훅 (ResizeObserver)
+// TopBar height hook (ResizeObserver)
 const useElementHeight = (ref) => {
   const [h, setH] = useState(0);
 
@@ -78,53 +102,38 @@ const useElementHeight = (ref) => {
   return h;
 };
 
-const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-
-const renderHighlightedText = (text, keyword, markStyle) => {
-  const t = String(text ?? "");
-  const k = String(keyword ?? "").trim();
-  if (!k || k.length < 2) return t; // 2글자 미만은 하이라이트 안 함(원하면 1로 바꿔도 됨)
-
-  const re = new RegExp(`(${escapeRegExp(k)})`, "gi");
-  const parts = t.split(re);
-
-  // split 결과: [일반, 매칭, 일반, 매칭, ...]
-  return parts.map((p, i) => {
-    const isMatch = i % 2 === 1;
-    if (!isMatch) return <React.Fragment key={i}>{p}</React.Fragment>;
-    return (
-      <mark key={i} style={markStyle}>
-        {p}
-      </mark>
-    );
-  });
-};
-
-
 // -----------------------------
 // component
 // -----------------------------
 export default function MemberChatPage() {
   const navigate = useNavigate();
 
+  const PAGE_SIZE = 10;
+
   // ---- TopBar height
   const topBarRef = useRef(null);
   const topBarH = useElementHeight(topBarRef);
 
-  // ---- state
-  const [groupedSessions, setGroupedSessions] = useState([]); // [{date, sessions:[]}]
+  // ---- sessions (cursor paging)
+  const [sessionsFlat, setSessionsFlat] = useState([]); // flat list
+  const [nextCursor, setNextCursor] = useState(null);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingSessions, setLoadingSessions] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  // ---- active session
   const [activeSessionId, setActiveSessionId] = useState(null);
   const [activeSessionTitle, setActiveSessionTitle] = useState("");
 
-  const [messages, setMessages] = useState([]); // [{chatId, role, content, createdAt}]
-  const [loadingSessions, setLoadingSessions] = useState(false);
+  // ---- messages
+  const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
-  // ✅ Enter로만 검색할 거라 debounce 관련 state 제거
+  // ---- search (Enter only)
   const [keyword, setKeyword] = useState("");
-
+  const [searchKeyword, setSearchKeyword] = useState(""); // 실제로 검색 실행된 키워드(하이라이트용)
   const [searching, setSearching] = useState(false);
-  const [searchGroups, setSearchGroups] = useState([]); // [{date, results:[]}]
+  const [searchGroups, setSearchGroups] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
 
   const [highlightChatId, setHighlightChatId] = useState(null);
@@ -135,28 +144,132 @@ export default function MemberChatPage() {
   const messageRefs = useRef(new Map()); // chatId -> element
 
   // -----------------------------
+  // backend response parsing (safe)
+  // -----------------------------
+  const parseCursorResponse = (data) => {
+    // 너 service가 어떤 키로 주든 최대한 맞춰줌
+    const items =
+      data?.items ??
+      data?.content ??
+      data?.sessions ??
+      data?.list ??
+      data?.data ??
+      [];
+
+    const next =
+      data?.nextCursor ??
+      data?.cursor ??
+      data?.next ??
+      data?.next_cursor ??
+      null;
+
+    const more =
+      data?.hasMore ??
+      data?.has_more ??
+      (Array.isArray(items) ? items.length === PAGE_SIZE : false);
+
+    return {
+      items: Array.isArray(items) ? items : [],
+      nextCursor: next,
+      hasMore: !!more,
+    };
+  };
+
+  const normalizeSessionItem = (s) => {
+    // 기대 필드: sessionId, title, startTime, lastMessageAt
+    const sessionId = s.sessionId ?? s.id;
+    return {
+      sessionId,
+      title: s.title ?? "새 대화",
+      startTime: s.startTime ?? s.createdAt ?? null,
+      lastMessageAt: s.lastMessageAt ?? s.updatedAt ?? s.startTime ?? null,
+      deletedAt: s.deletedAt ?? null,
+    };
+  };
+
+  const groupSessionsByDate = (flat) => {
+    const m = new Map(); // dateKey -> sessions[]
+    for (const raw of flat) {
+      const s = normalizeSessionItem(raw);
+      const dateKey = fmtDateKey(s.lastMessageAt || s.startTime) || "기타";
+      if (!m.has(dateKey)) m.set(dateKey, []);
+      m.get(dateKey).push(s);
+    }
+
+    // date desc 정렬(YYYY-MM-DD면 문자열 정렬로 OK)
+    const keys = Array.from(m.keys()).sort((a, b) => (a < b ? 1 : -1));
+
+    return keys.map((k) => ({
+      date: k,
+      sessions: (m.get(k) || []).sort((a, b) => {
+        const ta = new Date(a.lastMessageAt || a.startTime || 0).getTime();
+        const tb = new Date(b.lastMessageAt || b.startTime || 0).getTime();
+        return tb - ta;
+      }),
+    }));
+  };
+
+  const findTitleBySessionId = (sid) => {
+    const s = sessionsFlat.find((x) => String(x.sessionId ?? x.id) === String(sid));
+    if (!s) return "";
+    return s.title ?? "";
+  };
+
+  // -----------------------------
   // api
   // -----------------------------
-  const loadGroupedSessions = async ({ autoPickFirst = true } = {}) => {
+  const loadSessionsFirst = async () => {
     setLoadingSessions(true);
     setErrorBanner("");
     try {
-      const res = await axiosInstance.get("/api/chat/sessions/grouped");
-      const normalized = normalizeGroupedSessions(res.data);
-      setGroupedSessions(normalized);
+      const res = await axiosInstance.get("/api/chat/sessions", {
+        params: { size: PAGE_SIZE },
+      });
 
-      if (autoPickFirst && !searching) {
-        const first = normalized?.[0]?.sessions?.[0];
-        if (first?.sessionId && activeSessionId == null) {
-          setActiveSessionId(first.sessionId);
-        }
+      const parsed = parseCursorResponse(res.data);
+      const normalized = parsed.items.map(normalizeSessionItem);
+
+      setSessionsFlat(normalized);
+      setNextCursor(parsed.nextCursor ?? null);
+      setHasMore(parsed.hasMore);
+
+      // 첫 항목 자동 선택 (검색 중이 아닐 때)
+      const first = normalized?.[0];
+      if (!searching && first?.sessionId && activeSessionId == null) {
+        setActiveSessionId(first.sessionId);
+        setActiveSessionTitle(first.title ?? "");
       }
     } catch (e) {
       console.error("세션 목록 로드 실패:", e);
-      setGroupedSessions([]);
+      setSessionsFlat([]);
+      setHasMore(false);
       setErrorBanner("⚠️ 대화 목록을 불러오지 못했습니다. (서버/로그인 상태 확인)");
     } finally {
       setLoadingSessions(false);
+    }
+  };
+
+  const loadMoreSessions = async () => {
+    if (!hasMore || loadingMore || searching) return;
+
+    setLoadingMore(true);
+    setErrorBanner("");
+    try {
+      const res = await axiosInstance.get("/api/chat/sessions", {
+        params: { size: PAGE_SIZE, cursor: nextCursor || undefined },
+      });
+
+      const parsed = parseCursorResponse(res.data);
+      const normalized = parsed.items.map(normalizeSessionItem);
+
+      setSessionsFlat((prev) => [...prev, ...normalized]);
+      setNextCursor(parsed.nextCursor ?? null);
+      setHasMore(parsed.hasMore);
+    } catch (e) {
+      console.error("더보기 실패:", e);
+      setErrorBanner("⚠️ 더보기에 실패했습니다.");
+    } finally {
+      setLoadingMore(false);
     }
   };
 
@@ -172,6 +285,12 @@ export default function MemberChatPage() {
       const normalized = normalizeMessages(res.data);
       setMessages(normalized);
       setHighlightChatId(highlightId ?? null);
+
+      // 세션 title 동기화(좌측에서 타이틀 못 잡는 경우 대비)
+      if (!activeSessionTitle) {
+        const t = findTitleBySessionId(sessionId);
+        if (t) setActiveSessionTitle(t);
+      }
     } catch (e) {
       console.error("메시지 로드 실패:", e);
       setMessages([{ chatId: "err", role: "ai", content: "⚠️ 대화 내용을 불러오지 못했습니다.", createdAt: null }]);
@@ -184,25 +303,21 @@ export default function MemberChatPage() {
   const createSession = async () => {
     setErrorBanner("");
     try {
-      // ✅ 서버에 맞게 body는 조정 가능 (없어도 되면 {}로)
       const res = await axiosInstance.post("/api/chat/sessions", { title: "새 대화" });
-
       const newId = res?.data?.sessionId ?? res?.data?.id;
-      if (!newId) {
-        // 응답에 id가 없으면 목록 다시 로드 후 첫 세션을 잡는 방식으로 fallback
-        await loadGroupedSessions({ autoPickFirst: false });
-        alert("새 대화를 만들었지만 세션 ID를 받지 못했습니다. 목록에서 확인하세요.");
-        return;
-      }
 
-      // ✅ 검색중이면 해제하고 새 세션으로 이동
+      // 검색중이면 해제
       clearSearch();
 
-      // ✅ 목록 새로고침 + 새 세션 선택
-      await loadGroupedSessions({ autoPickFirst: false });
-      setActiveSessionId(newId);
-      setMessages([]); // 새 세션이니 일단 비우기
-      setHighlightChatId(null);
+      // 목록 리셋 로드
+      await loadSessionsFirst();
+
+      if (newId) {
+        setActiveSessionId(newId);
+        setActiveSessionTitle("새 대화");
+        setMessages([]);
+        setHighlightChatId(null);
+      }
     } catch (e) {
       console.error("세션 생성 실패:", e);
       setErrorBanner("⚠️ 새 대화를 만들지 못했습니다.");
@@ -216,12 +331,11 @@ export default function MemberChatPage() {
 
     try {
       await axiosInstance.delete(`/api/chat/sessions/${sessionId}`);
-      await loadGroupedSessions({ autoPickFirst: false });
 
-      if (String(activeSessionId) === String(sessionId)) {
-        setActiveSessionId(null);
-        setMessages([]);
-      }
+      // 목록 리셋 (삭제 후 커서 꼬임 방지)
+      setActiveSessionId((prev) => (String(prev) === String(sessionId) ? null : prev));
+      setMessages((prev) => (String(activeSessionId) === String(sessionId) ? [] : prev));
+      await loadSessionsFirst();
     } catch (e) {
       console.error("세션 삭제 실패:", e);
       alert("삭제에 실패했습니다. (권한/서버 로그 확인)");
@@ -232,20 +346,16 @@ export default function MemberChatPage() {
   const runSearch = async (kw) => {
     const k = (kw ?? "").trim();
 
-    // 검색어 비면 검색 해제
     if (!k) {
-      setSearching(false);
-      setSearchGroups([]);
-      setHighlightChatId(null);
-      setErrorBanner("");
+      clearSearch();
       return;
     }
 
-    // ✅ 최소 글자수 제한 (1글자 검색은 DB 풀스캔 가능성 큼)
     if (k.length < 2) {
       setSearching(false);
       setSearchGroups([]);
       setHighlightChatId(null);
+      setSearchKeyword("");
       setErrorBanner("⚠️ 검색어는 2글자 이상 입력 후 Enter를 눌러주세요.");
       return;
     }
@@ -253,6 +363,7 @@ export default function MemberChatPage() {
     setSearching(true);
     setLoadingSearch(true);
     setErrorBanner("");
+    setSearchKeyword(k);
 
     try {
       const res = await axiosInstance.get("/api/chat/messages/search", {
@@ -270,6 +381,7 @@ export default function MemberChatPage() {
 
   const clearSearch = () => {
     setKeyword("");
+    setSearchKeyword("");
     setSearching(false);
     setSearchGroups([]);
     setHighlightChatId(null);
@@ -280,20 +392,16 @@ export default function MemberChatPage() {
   // effects
   // -----------------------------
   useEffect(() => {
-    loadGroupedSessions();
+    loadSessionsFirst();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // 세션 선택되면 메시지 로드
   useEffect(() => {
     if (!activeSessionId) return;
     loadMessages(activeSessionId, { highlightId: highlightChatId });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
-  // ✅ 자동검색 useEffect 제거됨!
-
-  // 메시지 렌더 직후 스크롤 처리(하이라이트 우선, 없으면 맨 아래)
   useLayoutEffect(() => {
     if (!activeSessionId) return;
     if (!chatAreaRef.current) return;
@@ -314,14 +422,18 @@ export default function MemberChatPage() {
   // -----------------------------
   // derived
   // -----------------------------
-  const leftGroups = useMemo(() => (searching ? searchGroups : groupedSessions), [searching, searchGroups, groupedSessions]);
+  const groupedSessions = useMemo(() => groupSessionsByDate(sessionsFlat), [sessionsFlat]);
+
+  const leftGroups = useMemo(
+    () => (searching ? searchGroups : groupedSessions),
+    [searching, searchGroups, groupedSessions]
+  );
 
   const totalSearchHits = useMemo(() => {
     if (!searching) return 0;
     return (searchGroups || []).reduce((acc, g) => acc + (g.results?.length || 0), 0);
   }, [searching, searchGroups]);
 
-  // 본문 영역 높이(TopBar 실제 높이를 빼서 100vh에 딱 맞춤)
   const bodyHeight = useMemo(() => `calc(100vh - ${topBarH}px)`, [topBarH]);
 
   // -----------------------------
@@ -344,7 +456,7 @@ export default function MemberChatPage() {
           <button
             className="btn btn-outline-secondary d-flex align-items-center gap-2"
             style={{ borderRadius: 12 }}
-            onClick={() => loadGroupedSessions({ autoPickFirst: false })}
+            onClick={() => loadSessionsFirst()}
             title="목록 새로고침"
           >
             <RefreshCcw size={16} />
@@ -362,8 +474,6 @@ export default function MemberChatPage() {
       </div>
     </div>
   );
-
-
 
   const Bubble = ({ m }) => {
     const isUser = safeLower(m.role) === "user";
@@ -395,12 +505,8 @@ export default function MemberChatPage() {
         >
           {renderHighlightedText(
             m.content,
-            searching ? keyword : "", // ✅ 검색 중일 때만 하이라이트
-            {
-              background: "rgba(250, 204, 21, 0.6)", // 노랑 느낌
-              padding: "0 2px",
-              borderRadius: 4,
-            }
+            searching ? searchKeyword : "",
+            { background: "rgba(250, 204, 21, 0.6)", padding: "0 2px", borderRadius: 4 }
           )}
 
           {m.createdAt && (
@@ -414,7 +520,7 @@ export default function MemberChatPage() {
   };
 
   const LeftPanel = () => (
-    <div className="bg-white border rounded-4 shadow-sm overflow-hidden" style={{ height: "100%" }}>
+    <div className="bg-white border rounded-4 shadow-sm overflow-hidden" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
       <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
         <div className="fw-bold" style={{ color: "#059669" }}>
           {searching ? "검색 결과" : "대화 목록"}
@@ -431,15 +537,14 @@ export default function MemberChatPage() {
               + 새 대화
             </button>
           )}
-
-          <div className="small text-muted">{searching ? (loadingSearch ? "검색 중..." : "") : ""}</div>
         </div>
       </div>
 
-
-      <div style={{ overflowY: "auto", height: "100%" }}>
+      <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
         {leftGroups.length === 0 && (
-          <div className="p-4 text-center text-muted">{searching ? "검색 결과가 없습니다." : "대화 내역이 없습니다."}</div>
+          <div className="p-4 text-center text-muted">
+            {searching ? "검색 결과가 없습니다." : loadingSessions ? "불러오는 중..." : "대화 내역이 없습니다."}
+          </div>
         )}
 
         {leftGroups.map((g, gi) => (
@@ -459,23 +564,22 @@ export default function MemberChatPage() {
                     onClick={() => {
                       setHighlightChatId(r.chatId);
                       setActiveSessionId(r.sessionId);
-                      setActiveSessionTitle(r.title);
+
+                      // 검색 결과에 title이 없을 수도 있으니: sessionsFlat에서 찾아보고 없으면 fallback
+                      const t = r.title ?? findTitleBySessionId(r.sessionId) ?? "";
+                      setActiveSessionTitle(t || `세션 #${r.sessionId}`);
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
                       <div className="fw-semibold" style={{ fontSize: 13 }}>
                         세션 #{r.sessionId} · {String(r.role || "").toUpperCase()}
                       </div>
-                      <div
-                        className="text-muted"
-                        style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      >
-                        {renderHighlightedText(
-                          r.content,
-                          keyword,
-                          { background: "rgba(250, 204, 21, 0.6)", padding: "0 2px", borderRadius: 4 }
-                        )}
-
+                      <div className="text-muted" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                        {renderHighlightedText(r.content, searchKeyword, {
+                          background: "rgba(250, 204, 21, 0.6)",
+                          padding: "0 2px",
+                          borderRadius: 4,
+                        })}
                       </div>
                       {r.createdAt && (
                         <div className="text-muted" style={{ fontSize: 11 }}>
@@ -488,7 +592,7 @@ export default function MemberChatPage() {
               }
 
               const s = item;
-              const sid = s.sessionId ?? s.id;
+              const sid = s.sessionId;
               const active = String(sid) === String(activeSessionId);
 
               return (
@@ -499,7 +603,7 @@ export default function MemberChatPage() {
                   onClick={() => {
                     setHighlightChatId(null);
                     setActiveSessionId(sid);
-                    setActiveSessionTitle(s.title)
+                    setActiveSessionTitle(s.title || "대화");
                   }}
                 >
                   <div className="d-flex align-items-center justify-content-between gap-2">
@@ -532,18 +636,34 @@ export default function MemberChatPage() {
           </div>
         ))}
       </div>
+
+      {/* ✅ 더보기: 날짜그룹 유지하면서 "플랫 + 커서"로 더 가져온 뒤 프론트에서 다시 그룹핑 */}
+      {!searching && sessionsFlat.length >= PAGE_SIZE && (
+        <div className="p-3 border-top bg-white">
+          {hasMore ? (
+            <button
+              className="btn btn-outline-secondary w-100"
+              onClick={loadMoreSessions}
+              disabled={loadingMore || loadingSessions}
+              style={{ borderRadius: 12 }}
+            >
+              {loadingMore ? "불러오는 중..." : "더보기"}
+            </button>
+          ) : (
+            <div className="text-center text-muted small">마지막입니다.</div>
+          )}
+          <div className="text-center text-muted small mt-2">
+            불러온 대화: {sessionsFlat.length}개
+          </div>
+        </div>
+      )}
     </div>
   );
 
   const RightPanel = () => (
     <div
       className="bg-white border rounded-4 shadow-sm overflow-hidden"
-      style={{
-        height: "100%",
-        minWidth: 0,
-        display: "flex",
-        flexDirection: "column",
-      }}
+      style={{ height: "100%", minWidth: 0, display: "flex", flexDirection: "column" }}
     >
       <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
         <div>
@@ -551,7 +671,7 @@ export default function MemberChatPage() {
             대화 내용
           </div>
           <div className="text-muted" style={{ fontSize: 12 }}>
-            {activeSessionId ? activeSessionTitle : "왼쪽에서 대화를 선택하세요"}
+            {activeSessionId ? (activeSessionTitle || `세션 #${activeSessionId}`) : "왼쪽에서 대화를 선택하세요"}
           </div>
         </div>
         <div className="small text-muted">{loadingMessages ? "불러오는 중..." : ""}</div>
@@ -600,7 +720,7 @@ export default function MemberChatPage() {
           <div className="row g-3" style={{ height: "100%", marginLeft: 0, marginRight: 0 }}>
             {/* LEFT */}
             <div className="col-12 col-lg-4 d-flex flex-column" style={{ height: "100%" }}>
-              {/* ✅ SearchBar 인라인 렌더(포커스 튕김 방지) */}
+              {/* SearchBar */}
               <div className="p-3 border-bottom bg-white">
                 <div className="input-group">
                   <span className="input-group-text bg-light border-0">
@@ -623,7 +743,7 @@ export default function MemberChatPage() {
                     onClick={() => runSearch(keyword)}
                     disabled={loadingSearch}
                     title="검색"
-                    style={{ minWidth: 88 }}   // ✅ 버튼 폭 고정(선택)
+                    style={{ minWidth: 88 }}
                   >
                     {loadingSearch ? "검색중..." : "검색"}
                   </button>
@@ -634,7 +754,7 @@ export default function MemberChatPage() {
                       onClick={clearSearch}
                       title="검색 초기화"
                       disabled={loadingSearch}
-                      style={{ minWidth: 44 }}  // ✅ X 버튼 폭 고정(선택)
+                      style={{ minWidth: 44 }}
                     >
                       <X size={18} />
                     </button>
@@ -646,20 +766,20 @@ export default function MemberChatPage() {
                     {loadingSearch
                       ? "검색 중..."
                       : searching
-                        ? `검색 결과: ${totalSearchHits}건`
-                        : "Enter 또는 검색 버튼으로 검색합니다. (2글자 이상)"}
+                      ? `검색 결과: ${totalSearchHits}건`
+                      : "Enter 또는 검색 버튼으로 검색합니다. (2글자 이상)"}
                   </div>
-                  <div className="small text-muted">{loadingSessions ? "목록 불러오는 중..." : ""}</div>
+                  <div className="small text-muted">
+                    {loadingSessions ? "목록 불러오는 중..." : ""}
+                  </div>
                 </div>
               </div>
 
-
-              {/* SearchBar 아래 남은 공간을 list가 먹게 */}
+              {/* list */}
               <div style={{ flex: 1, minHeight: 0 }}>
                 <LeftPanel />
               </div>
             </div>
-
 
             {/* RIGHT */}
             <div className="col-12 col-lg-8 d-flex flex-column" style={{ height: "100%", minWidth: 0 }}>
