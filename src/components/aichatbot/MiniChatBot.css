@@ -1,0 +1,60 @@
+.msg-actions{
+  display:flex;
+  gap:10px;
+  align-items:center;
+  margin:6px 0 10px;
+  flex-wrap:wrap;
+}
+
+.action-icon{
+  width:36px;
+  height:36px;
+  border-radius:999px;
+  border:1px solid #e5e7eb;
+  background:#fff;
+  color:#334155;
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 1px 2px rgba(0,0,0,0.04);
+  transition:transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease, color .12s ease;
+}
+
+.action-icon:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 18px rgba(0,0,0,0.10);
+  border-color:#d1d5db;
+  background:#f8fafc;
+}
+
+.action-icon:active{
+  transform:translateY(0px);
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+}
+
+.action-icon:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+  transform:none;
+  box-shadow:0 1px 2px rgba(0,0,0,0.04);
+}
+
+.action-divider{
+  width:1px;
+  height:18px;
+  background:#e5e7eb;
+  margin:0 2px;
+}
+
+/* 눌림 상태 */
+.action-icon.active.like{
+  border-color:rgba(5,150,105,0.45);
+  background:rgba(5,150,105,0.10);
+  color:#065f46;
+}
+
+.action-icon.active.dislike{
+  border-color:rgba(220,38,38,0.35);
+  background:rgba(220,38,38,0.08);
+  color:#7f1d1d;
+}

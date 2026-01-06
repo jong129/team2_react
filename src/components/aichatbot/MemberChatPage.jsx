@@ -114,6 +114,7 @@ export default function MemberChatPage() {
   // ---- state
   const [groupedSessions, setGroupedSessions] = useState([]); // [{date, sessions:[]}]
   const [activeSessionId, setActiveSessionId] = useState(null);
+  const [activeSessionTitle, setActiveSessionTitle] = useState("");
 
   const [messages, setMessages] = useState([]); // [{chatId, role, content, createdAt}]
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -458,6 +459,7 @@ export default function MemberChatPage() {
                     onClick={() => {
                       setHighlightChatId(r.chatId);
                       setActiveSessionId(r.sessionId);
+                      setActiveSessionTitle(r.title);
                     }}
                   >
                     <div style={{ minWidth: 0 }}>
@@ -497,6 +499,7 @@ export default function MemberChatPage() {
                   onClick={() => {
                     setHighlightChatId(null);
                     setActiveSessionId(sid);
+                    setActiveSessionTitle(s.title)
                   }}
                 >
                   <div className="d-flex align-items-center justify-content-between gap-2">
@@ -548,7 +551,7 @@ export default function MemberChatPage() {
             대화 내용
           </div>
           <div className="text-muted" style={{ fontSize: 12 }}>
-            {activeSessionId ? `세션 #${activeSessionId}` : "왼쪽에서 대화를 선택하세요"}
+            {activeSessionId ? activeSessionTitle : "왼쪽에서 대화를 선택하세요"}
           </div>
         </div>
         <div className="small text-muted">{loadingMessages ? "불러오는 중..." : ""}</div>

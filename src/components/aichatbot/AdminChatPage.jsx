@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { axiosInstance } from "../Tool";
 import { Search, Trash2, RefreshCcw, RotateCcw, ShieldAlert, MessageSquareText } from "lucide-react";
 
@@ -103,7 +103,6 @@ export default function AdminChatPage() {
   useEffect(() => {
     if (!activeSessionId) return;
     loadMessages(activeSessionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
   const runSearch = () => {
