@@ -5,19 +5,15 @@ import {
   User, ArrowRight, Menu, FileSearch
 } from 'lucide-react';
 import { useNavigate, Link } from "react-router-dom";
+import { axiosInstance } from "./Tool";
 
 const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
 
-  // 관리자 여부(프로젝트 상황에 맞게 localStorage 키만 맞추면 됨)
-  const isAdmin =
-    localStorage.getItem("role_id") === "ADMIN" ||
-    localStorage.getItem("isAdmin") === "true";
-
-
   const [memberName, setMemberName] = useState(
     localStorage.getItem("memberName") || "사용자"
   );
+  const [isAdmin, setIsAdmin] = useState(false); // 관리자
 
   useEffect(() => {
     const syncName = () => {
@@ -27,6 +23,36 @@ const Home = ({ isLoggedIn }) => {
     window.addEventListener("auth-change", syncName);
     return () => window.removeEventListener("auth-change", syncName);
   }, []);
+
+  const fetchIsAdmin = async () => {
+    const memberId = localStorage.getItem("loginMemberId");
+
+    if (!isLoggedIn || !memberId) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      // 백엔드: MemberRoleCont -> /member_role/is_admin/{memberId}
+      const res = await axiosInstance.get(`/member_role/is_admin/${memberId}`);
+      setIsAdmin(!!res.data?.isAdmin);
+    } catch (e) {
+      setIsAdmin(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchIsAdmin();
+
+    const syncAuth = () => {
+      setMemberName(localStorage.getItem("memberName") || "사용자");
+      fetchIsAdmin();
+    };
+
+    window.addEventListener("auth-change", syncAuth);
+    return () => window.removeEventListener("auth-change", syncAuth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -104,12 +130,23 @@ const Home = ({ isLoggedIn }) => {
 
             <div className="d-flex align-items-center gap-2">
               {isLoggedIn ? (
-                <button
-                  className="btn btn-sm btn-outline-secondary rounded-pill"
-                  onClick={handleLogout}
-                >
-                  로그아웃
-                </button>
+                <>
+                  {isAdmin && (
+                    <button
+                      className="btn btn-sm btn-outline-emerald rounded-pill"
+                      onClick={() => navigate("/admin/dashboard")}
+                    >
+                      관리자 대시보드
+                    </button>
+                  )}
+
+                  <button
+                    className="btn btn-sm btn-outline-secondary rounded-pill"
+                    onClick={handleLogout}
+                  >
+                    로그아웃
+                  </button>
+                </>
               ) : (
                 <a
                   href="/login"
@@ -119,6 +156,7 @@ const Home = ({ isLoggedIn }) => {
                 </a>
               )}
             </div>
+
           </div>
         </div>
       </nav>
@@ -212,7 +250,7 @@ const Home = ({ isLoggedIn }) => {
                     className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
                     style={{ background: "transparent" }}
                     data-bs-dismiss="offcanvas"
-                    onClick={() => navigate(isAdmin ? "/admin/dashboard" : "/aibot")}
+                    onClick={() => navigate(isAdmin ? "/admin/chat" : "/aibot")}
                   >
                     <MessageSquareText className="me-3" color="#059669" />
                     챗봇 대화 내역
@@ -225,7 +263,7 @@ const Home = ({ isLoggedIn }) => {
                       className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
                       style={{ background: "transparent" }}
                       data-bs-dismiss="offcanvas"
-                      onClick={() => navigate("/admin/chatbot")}
+                      onClick={() => navigate("/admin/chatbotstats")}
                     >
                       <MessageSquareText className="me-3" color="#059669" />
                       챗봇 통계
@@ -469,7 +507,7 @@ const Home = ({ isLoggedIn }) => {
                     <li className="mb-2">
                       <button
                         type="button"
-                        onClick={() => navigate(isAdmin ? "/admin/dashboard" : "/aibot")}
+                        onClick={() => navigate(isAdmin ? "/admin/chat" : "/aibot")}
                         className="btn btn-link p-0 text-decoration-none text-secondary small"
                         style={{ fontSize: '0.875rem' }}
                       >
@@ -482,7 +520,7 @@ const Home = ({ isLoggedIn }) => {
                       <li className="mb-2">
                         <button
                           type="button"
-                          onClick={() => navigate("/admin/chatbot")}
+                          onClick={() => navigate("/admin/chatbotstats")}
                           className="btn btn-link p-0 text-decoration-none text-secondary small"
                           style={{ fontSize: '0.875rem' }}
                         >

@@ -17,7 +17,7 @@ import MiniChatbot from "./components/aichatbot/MiniChatBot";
 import Member_FindPw from './components/member/member_findpw';
 import Member_ChangePw from './components/member/member_changepw';
 import { useEffect, useState } from "react";
-
+import AdminDashboard from './components/admin/AdminDashboard';
 
 
 function App() {
@@ -51,10 +51,11 @@ function App() {
           <Route path="/member_findid" element={<Member_FindId />} />
           <Route path="/member_findpw" element={<Member_FindPw />} />
           <Route path="/member_changepw" element={<Member_ChangePw />} />
+          <Route path="/admin/dashboard" element={<AdminDashboard />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
-          <Route path="/admin/dashboard" element={<AdminChatPage />} />
+          <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/chatbotstats" element={<ChatbotStats />} />
         </Routes>
 

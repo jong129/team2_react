@@ -367,7 +367,7 @@ export default function AdminChatPage() {
               </div>
 
               <div className="p-3 border-top text-muted small">
-                Tip: 관리자 페이지에서는 “title 검색” 외에 “메시지 내용 검색” 기능도 추가 가능(원하면 붙여줄게).
+                {/* Tip: 관리자 페이지에서는 “title 검색” 외에 “메시지 내용 검색” 기능도 추가 가능(원하면 붙여줄게). */}
               </div>
             </div>
           </div>

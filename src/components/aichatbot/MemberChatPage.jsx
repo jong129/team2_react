@@ -2,6 +2,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "re
 import { ArrowLeft, Search, Trash2, MessageSquareText, X, RefreshCcw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
+import "./MemberChatPage.css";
 
 // -----------------------------
 // utils
@@ -31,7 +32,7 @@ const fmtDateKey = (iso) => {
 
 const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
-const renderHighlightedText = (text, keyword, markStyle) => {
+const renderHighlightedText = (text, keyword) => {
   const t = String(text ?? "");
   const k = String(keyword ?? "").trim();
   if (!k || k.length < 2) return t;
@@ -43,7 +44,7 @@ const renderHighlightedText = (text, keyword, markStyle) => {
     const isMatch = i % 2 === 1;
     if (!isMatch) return <React.Fragment key={i}>{p}</React.Fragment>;
     return (
-      <mark key={i} style={markStyle}>
+      <mark key={i} className="mcp-mark">
         {p}
       </mark>
     );
@@ -66,7 +67,6 @@ const normalizeMessages = (data) => {
 };
 
 const normalizeSearchGroups = (data) => {
-  // 서버 DTO: [{ date, results:[{sessionId, chatId, role, content, createdAt, (optional) title}] }]
   if (!Array.isArray(data)) return [];
   return data.map((g) => ({
     date: g.date ?? g.key ?? g.groupKey ?? "",
@@ -107,7 +107,6 @@ const useElementHeight = (ref) => {
 // -----------------------------
 export default function MemberChatPage() {
   const navigate = useNavigate();
-
   const PAGE_SIZE = 10;
 
   // ---- TopBar height
@@ -115,7 +114,7 @@ export default function MemberChatPage() {
   const topBarH = useElementHeight(topBarRef);
 
   // ---- sessions (cursor paging)
-  const [sessionsFlat, setSessionsFlat] = useState([]); // flat list
+  const [sessionsFlat, setSessionsFlat] = useState([]);
   const [nextCursor, setNextCursor] = useState(null);
   const [hasMore, setHasMore] = useState(true);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -131,7 +130,7 @@ export default function MemberChatPage() {
 
   // ---- search (Enter only)
   const [keyword, setKeyword] = useState("");
-  const [searchKeyword, setSearchKeyword] = useState(""); // 실제로 검색 실행된 키워드(하이라이트용)
+  const [searchKeyword, setSearchKeyword] = useState("");
   const [searching, setSearching] = useState(false);
   const [searchGroups, setSearchGroups] = useState([]);
   const [loadingSearch, setLoadingSearch] = useState(false);
@@ -141,42 +140,20 @@ export default function MemberChatPage() {
 
   // ---- refs
   const chatAreaRef = useRef(null);
-  const messageRefs = useRef(new Map()); // chatId -> element
+  const messageRefs = useRef(new Map());
 
   // -----------------------------
   // backend response parsing (safe)
   // -----------------------------
   const parseCursorResponse = (data) => {
-    // 너 service가 어떤 키로 주든 최대한 맞춰줌
-    const items =
-      data?.items ??
-      data?.content ??
-      data?.sessions ??
-      data?.list ??
-      data?.data ??
-      [];
+    const items = data?.items ?? data?.content ?? data?.sessions ?? data?.list ?? data?.data ?? [];
+    const next = data?.nextCursor ?? data?.cursor ?? data?.next ?? data?.next_cursor ?? null;
+    const more = data?.hasMore ?? data?.has_more ?? (Array.isArray(items) ? items.length === PAGE_SIZE : false);
 
-    const next =
-      data?.nextCursor ??
-      data?.cursor ??
-      data?.next ??
-      data?.next_cursor ??
-      null;
-
-    const more =
-      data?.hasMore ??
-      data?.has_more ??
-      (Array.isArray(items) ? items.length === PAGE_SIZE : false);
-
-    return {
-      items: Array.isArray(items) ? items : [],
-      nextCursor: next,
-      hasMore: !!more,
-    };
+    return { items: Array.isArray(items) ? items : [], nextCursor: next, hasMore: !!more };
   };
 
   const normalizeSessionItem = (s) => {
-    // 기대 필드: sessionId, title, startTime, lastMessageAt
     const sessionId = s.sessionId ?? s.id;
     return {
       sessionId,
@@ -188,7 +165,7 @@ export default function MemberChatPage() {
   };
 
   const groupSessionsByDate = (flat) => {
-    const m = new Map(); // dateKey -> sessions[]
+    const m = new Map();
     for (const raw of flat) {
       const s = normalizeSessionItem(raw);
       const dateKey = fmtDateKey(s.lastMessageAt || s.startTime) || "기타";
@@ -196,7 +173,6 @@ export default function MemberChatPage() {
       m.get(dateKey).push(s);
     }
 
-    // date desc 정렬(YYYY-MM-DD면 문자열 정렬로 OK)
     const keys = Array.from(m.keys()).sort((a, b) => (a < b ? 1 : -1));
 
     return keys.map((k) => ({
@@ -222,9 +198,7 @@ export default function MemberChatPage() {
     setLoadingSessions(true);
     setErrorBanner("");
     try {
-      const res = await axiosInstance.get("/api/chat/sessions", {
-        params: { size: PAGE_SIZE },
-      });
+      const res = await axiosInstance.get("/api/chat/sessions", { params: { size: PAGE_SIZE } });
 
       const parsed = parseCursorResponse(res.data);
       const normalized = parsed.items.map(normalizeSessionItem);
@@ -233,7 +207,6 @@ export default function MemberChatPage() {
       setNextCursor(parsed.nextCursor ?? null);
       setHasMore(parsed.hasMore);
 
-      // 첫 항목 자동 선택 (검색 중이 아닐 때)
       const first = normalized?.[0];
       if (!searching && first?.sessionId && activeSessionId == null) {
         setActiveSessionId(first.sessionId);
@@ -279,14 +252,11 @@ export default function MemberChatPage() {
     setErrorBanner("");
 
     try {
-      const res = await axiosInstance.get(`/api/chat/sessions/${sessionId}/messages`, {
-        params: { limit: 500 },
-      });
+      const res = await axiosInstance.get(`/api/chat/sessions/${sessionId}/messages`, { params: { limit: 500 } });
       const normalized = normalizeMessages(res.data);
       setMessages(normalized);
       setHighlightChatId(highlightId ?? null);
 
-      // 세션 title 동기화(좌측에서 타이틀 못 잡는 경우 대비)
       if (!activeSessionTitle) {
         const t = findTitleBySessionId(sessionId);
         if (t) setActiveSessionTitle(t);
@@ -306,10 +276,7 @@ export default function MemberChatPage() {
       const res = await axiosInstance.post("/api/chat/sessions", { title: "새 대화" });
       const newId = res?.data?.sessionId ?? res?.data?.id;
 
-      // 검색중이면 해제
       clearSearch();
-
-      // 목록 리셋 로드
       await loadSessionsFirst();
 
       if (newId) {
@@ -331,8 +298,6 @@ export default function MemberChatPage() {
 
     try {
       await axiosInstance.delete(`/api/chat/sessions/${sessionId}`);
-
-      // 목록 리셋 (삭제 후 커서 꼬임 방지)
       setActiveSessionId((prev) => (String(prev) === String(sessionId) ? null : prev));
       setMessages((prev) => (String(activeSessionId) === String(sessionId) ? [] : prev));
       await loadSessionsFirst();
@@ -342,7 +307,6 @@ export default function MemberChatPage() {
     }
   };
 
-  // ✅ Enter/버튼으로만 호출
   const runSearch = async (kw) => {
     const k = (kw ?? "").trim();
 
@@ -366,9 +330,7 @@ export default function MemberChatPage() {
     setSearchKeyword(k);
 
     try {
-      const res = await axiosInstance.get("/api/chat/messages/search", {
-        params: { keyword: k, size: 200 },
-      });
+      const res = await axiosInstance.get("/api/chat/messages/search", { params: { keyword: k, size: 200 } });
       setSearchGroups(normalizeSearchGroups(res.data));
     } catch (e) {
       console.error("검색 실패:", e);
@@ -413,49 +375,42 @@ export default function MemberChatPage() {
       return;
     }
 
-    chatAreaRef.current.scrollTo({
-      top: chatAreaRef.current.scrollHeight,
-      behavior: "smooth",
-    });
+    chatAreaRef.current.scrollTo({ top: chatAreaRef.current.scrollHeight, behavior: "smooth" });
   }, [activeSessionId, loadingMessages, messages, highlightChatId]);
 
   // -----------------------------
   // derived
   // -----------------------------
   const groupedSessions = useMemo(() => groupSessionsByDate(sessionsFlat), [sessionsFlat]);
-
-  const leftGroups = useMemo(
-    () => (searching ? searchGroups : groupedSessions),
-    [searching, searchGroups, groupedSessions]
-  );
+  const leftGroups = useMemo(() => (searching ? searchGroups : groupedSessions), [searching, searchGroups, groupedSessions]);
 
   const totalSearchHits = useMemo(() => {
     if (!searching) return 0;
     return (searchGroups || []).reduce((acc, g) => acc + (g.results?.length || 0), 0);
   }, [searching, searchGroups]);
 
+  // ✅ 인라인로 남겨둘 “동적 값” (topBar 높이)
   const bodyHeight = useMemo(() => `calc(100vh - ${topBarH}px)`, [topBarH]);
 
   // -----------------------------
   // ui
   // -----------------------------
   const TopBar = () => (
-    <div ref={topBarRef} className="bg-white border-bottom" style={{ position: "sticky", top: 0, zIndex: 50 }}>
-      <div className="container" style={{ maxWidth: 1200 }}>
+    <div ref={topBarRef} className="mcp-topbar bg-white border-bottom">
+      <div className="container mcp-container">
         <div className="d-flex align-items-center justify-content-between py-3">
           <button className="btn btn-link text-decoration-none" onClick={() => navigate(-1)}>
             <ArrowLeft className="me-2" />
             뒤로
           </button>
 
-          <div className="fw-bold d-flex align-items-center" style={{ color: "#059669" }}>
+          <div className="fw-bold d-flex align-items-center mcp-title">
             <MessageSquareText className="me-2" />
             AI 챗봇 대화 내역
           </div>
 
           <button
-            className="btn btn-outline-secondary d-flex align-items-center gap-2"
-            style={{ borderRadius: 12 }}
+            className="btn btn-outline-secondary d-flex align-items-center gap-2 mcp-refresh-btn"
             onClick={() => loadSessionsFirst()}
             title="목록 새로고침"
           >
@@ -466,9 +421,7 @@ export default function MemberChatPage() {
 
         {errorBanner && (
           <div className="pb-3">
-            <div className="alert alert-warning mb-0" style={{ borderRadius: 12 }}>
-              {errorBanner}
-            </div>
+            <div className="alert alert-warning mb-0 mcp-alert">{errorBanner}</div>
           </div>
         )}
       </div>
@@ -484,63 +437,42 @@ export default function MemberChatPage() {
         ref={(el) => {
           if (el) messageRefs.current.set(m.chatId, el);
         }}
-        className="mb-3 d-flex"
-        style={{ justifyContent: isUser ? "flex-end" : "flex-start" }}
+        className={[
+          "mcp-bubble-row",
+          "mb-3",
+          "d-flex",
+          isUser ? "mcp-bubble-row-user" : "mcp-bubble-row-ai",
+        ].join(" ")}
       >
         <div
-          className="shadow-sm"
-          style={{
-            maxWidth: "82%",
-            padding: "12px 14px",
-            borderRadius: 18,
-            background: isUser ? "#059669" : "white",
-            color: isUser ? "white" : "#0f172a",
-            whiteSpace: "pre-wrap",
-            lineHeight: 1.45,
-            overflowWrap: "anywhere",
-            wordBreak: "break-word",
-            border: isUser ? "none" : "1px solid #eef2f7",
-            boxShadow: isHighlight ? "0 0 0 3px rgba(5,150,105,0.25)" : undefined,
-          }}
+          className={[
+            "mcp-bubble",
+            "shadow-sm",
+            isUser ? "mcp-bubble-user" : "mcp-bubble-ai",
+            isHighlight ? "mcp-bubble-highlight" : "",
+          ].join(" ")}
         >
-          {renderHighlightedText(
-            m.content,
-            searching ? searchKeyword : "",
-            { background: "rgba(250, 204, 21, 0.6)", padding: "0 2px", borderRadius: 4 }
-          )}
+          {renderHighlightedText(m.content, searching ? searchKeyword : "")}
 
-          {m.createdAt && (
-            <div className="mt-2" style={{ fontSize: 11, opacity: 0.75 }}>
-              {fmtDateTime(m.createdAt)}
-            </div>
-          )}
+          {m.createdAt && <div className="mcp-bubble-time mt-2">{fmtDateTime(m.createdAt)}</div>}
         </div>
       </div>
     );
   };
 
   const LeftPanel = () => (
-    <div className="bg-white border rounded-4 shadow-sm overflow-hidden" style={{ height: "100%", display: "flex", flexDirection: "column" }}>
+    <div className="mcp-panel bg-white border rounded-4 shadow-sm overflow-hidden">
       <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
-        <div className="fw-bold" style={{ color: "#059669" }}>
-          {searching ? "검색 결과" : "대화 목록"}
-        </div>
+        <div className="fw-bold mcp-accent">{searching ? "검색 결과" : "대화 목록"}</div>
 
-        <div className="d-flex align-items-center gap-2">
-          {!searching && (
-            <button
-              className="btn btn-sm btn-success"
-              style={{ borderRadius: 10, whiteSpace: "nowrap" }}
-              onClick={createSession}
-              title="새 대화 만들기"
-            >
-              + 새 대화
-            </button>
-          )}
-        </div>
+        {!searching && (
+          <button className="btn btn-sm btn-success mcp-pill-btn" onClick={createSession} title="새 대화 만들기">
+            + 새 대화
+          </button>
+        )}
       </div>
 
-      <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
+      <div className="mcp-left-scroll">
         {leftGroups.length === 0 && (
           <div className="p-4 text-center text-muted">
             {searching ? "검색 결과가 없습니다." : loadingSessions ? "불러오는 중..." : "대화 내역이 없습니다."}
@@ -549,9 +481,7 @@ export default function MemberChatPage() {
 
         {leftGroups.map((g, gi) => (
           <div key={gi} className="border-bottom">
-            <div className="px-3 py-2 fw-semibold" style={{ background: "#f8fafc" }}>
-              {g.date}
-            </div>
+            <div className="px-3 py-2 fw-semibold mcp-group-header">{g.date}</div>
 
             {(searching ? g.results : g.sessions).map((item, idx) => {
               if (searching) {
@@ -559,33 +489,23 @@ export default function MemberChatPage() {
                 return (
                   <div
                     key={`${r.chatId}-${idx}`}
-                    className="px-3 py-2 border-top"
-                    style={{ cursor: "pointer" }}
+                    className="px-3 py-2 border-top mcp-list-item"
                     onClick={() => {
                       setHighlightChatId(r.chatId);
                       setActiveSessionId(r.sessionId);
 
-                      // 검색 결과에 title이 없을 수도 있으니: sessionsFlat에서 찾아보고 없으면 fallback
                       const t = r.title ?? findTitleBySessionId(r.sessionId) ?? "";
                       setActiveSessionTitle(t || `세션 #${r.sessionId}`);
                     }}
                   >
-                    <div style={{ minWidth: 0 }}>
-                      <div className="fw-semibold" style={{ fontSize: 13 }}>
+                    <div className="mcp-minw-0">
+                      <div className="fw-semibold mcp-search-title">
                         세션 #{r.sessionId} · {String(r.role || "").toUpperCase()}
                       </div>
-                      <div className="text-muted" style={{ fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                        {renderHighlightedText(r.content, searchKeyword, {
-                          background: "rgba(250, 204, 21, 0.6)",
-                          padding: "0 2px",
-                          borderRadius: 4,
-                        })}
+                      <div className="text-muted mcp-ellipsis">
+                        {renderHighlightedText(r.content, searchKeyword)}
                       </div>
-                      {r.createdAt && (
-                        <div className="text-muted" style={{ fontSize: 11 }}>
-                          {fmtDateTime(r.createdAt)}
-                        </div>
-                      )}
+                      {r.createdAt && <div className="text-muted mcp-small">{fmtDateTime(r.createdAt)}</div>}
                     </div>
                   </div>
                 );
@@ -598,8 +518,7 @@ export default function MemberChatPage() {
               return (
                 <div
                   key={sid ?? idx}
-                  className="px-3 py-2 border-top"
-                  style={{ cursor: "pointer", background: active ? "#ecfdf5" : "white" }}
+                  className={["px-3", "py-2", "border-top", "mcp-list-item", active ? "is-active" : ""].join(" ")}
                   onClick={() => {
                     setHighlightChatId(null);
                     setActiveSessionId(sid);
@@ -607,20 +526,17 @@ export default function MemberChatPage() {
                   }}
                 >
                   <div className="d-flex align-items-center justify-content-between gap-2">
-                    <div style={{ minWidth: 0 }}>
-                      <div
-                        className="fw-semibold"
-                        style={{ fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
-                      >
+                    <div className="mcp-minw-0">
+                      <div className="fw-semibold mcp-session-title">
                         {s.title || "대화"}
                       </div>
-                      <div className="text-muted" style={{ fontSize: 12 }}>
+                      <div className="text-muted mcp-session-sub">
                         {s.lastMessageAt ? fmtDateTime(s.lastMessageAt) : s.startTime ? fmtDateTime(s.startTime) : ""}
                       </div>
                     </div>
 
                     <button
-                      className="btn btn-sm btn-link text-danger"
+                      className="btn btn-sm btn-link text-danger mcp-trash-btn"
                       title="삭제"
                       onClick={(e) => {
                         e.stopPropagation();
@@ -637,60 +553,43 @@ export default function MemberChatPage() {
         ))}
       </div>
 
-      {/* ✅ 더보기: 날짜그룹 유지하면서 "플랫 + 커서"로 더 가져온 뒤 프론트에서 다시 그룹핑 */}
       {!searching && sessionsFlat.length >= PAGE_SIZE && (
         <div className="p-3 border-top bg-white">
           {hasMore ? (
             <button
-              className="btn btn-outline-secondary w-100"
+              className="btn btn-outline-secondary w-100 mcp-more-btn"
               onClick={loadMoreSessions}
               disabled={loadingMore || loadingSessions}
-              style={{ borderRadius: 12 }}
             >
               {loadingMore ? "불러오는 중..." : "더보기"}
             </button>
           ) : (
             <div className="text-center text-muted small">마지막입니다.</div>
           )}
-          <div className="text-center text-muted small mt-2">
-            불러온 대화: {sessionsFlat.length}개
-          </div>
+
+          <div className="text-center text-muted small mt-2">불러온 대화: {sessionsFlat.length}개</div>
         </div>
       )}
     </div>
   );
 
   const RightPanel = () => (
-    <div
-      className="bg-white border rounded-4 shadow-sm overflow-hidden"
-      style={{ height: "100%", minWidth: 0, display: "flex", flexDirection: "column" }}
-    >
+    <div className="mcp-panel mcp-right bg-white border rounded-4 shadow-sm overflow-hidden">
       <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
         <div>
-          <div className="fw-bold" style={{ color: "#059669" }}>
-            대화 내용
-          </div>
-          <div className="text-muted" style={{ fontSize: 12 }}>
-            {activeSessionId ? (activeSessionTitle || `세션 #${activeSessionId}`) : "왼쪽에서 대화를 선택하세요"}
+          <div className="fw-bold mcp-accent">대화 내용</div>
+          <div className="text-muted mcp-right-sub">
+            {activeSessionId ? activeSessionTitle || `세션 #${activeSessionId}` : "왼쪽에서 대화를 선택하세요"}
           </div>
         </div>
         <div className="small text-muted">{loadingMessages ? "불러오는 중..." : ""}</div>
       </div>
 
-      <div
-        ref={chatAreaRef}
-        className="p-3"
-        style={{
-          flex: 1,
-          minHeight: 0,
-          overflowY: "auto",
-          overflowX: "hidden",
-          background: "#f8fafc",
-          paddingBottom: 24,
-        }}
-      >
+      <div ref={chatAreaRef} className="mcp-chat-area p-3">
         {!activeSessionId && (
-          <div className="p-4 text-center text-muted">왼쪽에서 대화를 선택하면 여기에서 전체 기록을 볼 수 있어요.</div>
+          <div className="p-4 text-center text-muted">
+            왼쪽에서 대화를 선택하면 여기에서 전체 기록을 볼 수 있어요.
+          </div>
         )}
 
         {activeSessionId && messages.length === 0 && !loadingMessages && (
@@ -703,7 +602,7 @@ export default function MemberChatPage() {
 
         {loadingMessages && <div className="text-center text-muted py-3">불러오는 중...</div>}
 
-        <div style={{ height: 8 }} />
+        <div className="mcp-chat-bottom-spacer" />
       </div>
     </div>
   );
@@ -712,14 +611,15 @@ export default function MemberChatPage() {
   // layout
   // -----------------------------
   return (
-    <div style={{ background: "#f8fafc", height: "100vh", display: "flex", flexDirection: "column" }}>
+    <div className="mcp-page">
       <TopBar />
 
-      <div style={{ height: bodyHeight, minHeight: 0 }}>
-        <div className="container py-4" style={{ maxWidth: 1200, height: "100%" }}>
-          <div className="row g-3" style={{ height: "100%", marginLeft: 0, marginRight: 0 }}>
+      {/* ✅ 동적 높이만 인라인 유지 */}
+      <div className="mcp-body" style={{ height: bodyHeight }}>
+        <div className="container py-4 mcp-container mcp-body-inner">
+          <div className="row g-3 mcp-row">
             {/* LEFT */}
-            <div className="col-12 col-lg-4 d-flex flex-column" style={{ height: "100%" }}>
+            <div className="col-12 col-lg-4 d-flex flex-column mcp-col">
               {/* SearchBar */}
               <div className="p-3 border-bottom bg-white">
                 <div className="input-group">
@@ -739,22 +639,20 @@ export default function MemberChatPage() {
                   />
 
                   <button
-                    className="btn btn-success"
+                    className="btn btn-success mcp-search-btn"
                     onClick={() => runSearch(keyword)}
                     disabled={loadingSearch}
                     title="검색"
-                    style={{ minWidth: 88 }}
                   >
                     {loadingSearch ? "검색중..." : "검색"}
                   </button>
 
                   {(keyword.trim() || searching) && (
                     <button
-                      className="btn btn-outline-secondary"
+                      className="btn btn-outline-secondary mcp-clear-btn"
                       onClick={clearSearch}
                       title="검색 초기화"
                       disabled={loadingSearch}
-                      style={{ minWidth: 44 }}
                     >
                       <X size={18} />
                     </button>
@@ -769,20 +667,18 @@ export default function MemberChatPage() {
                       ? `검색 결과: ${totalSearchHits}건`
                       : "Enter 또는 검색 버튼으로 검색합니다. (2글자 이상)"}
                   </div>
-                  <div className="small text-muted">
-                    {loadingSessions ? "목록 불러오는 중..." : ""}
-                  </div>
+                  <div className="small text-muted">{loadingSessions ? "목록 불러오는 중..." : ""}</div>
                 </div>
               </div>
 
               {/* list */}
-              <div style={{ flex: 1, minHeight: 0 }}>
+              <div className="mcp-flex-fill">
                 <LeftPanel />
               </div>
             </div>
 
             {/* RIGHT */}
-            <div className="col-12 col-lg-8 d-flex flex-column" style={{ height: "100%", minWidth: 0 }}>
+            <div className="col-12 col-lg-8 d-flex flex-column mcp-col mcp-col-right">
               <RightPanel />
             </div>
           </div>
