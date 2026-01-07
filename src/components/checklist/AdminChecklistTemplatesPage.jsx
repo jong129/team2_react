@@ -164,7 +164,7 @@ export default function AdminChecklistTemplatesPage() {
                 <option value="">전체</option>
                 <option value="DRAFT">초안</option>
                 <option value="ACTIVE">활성화</option>
-                <option value="RETIRED">RETIRED</option>
+                <option value="RETIRED">비활성화</option>
               </select>
             </div>
 
