@@ -1,58 +1,72 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ArrowLeft, FolderOpen, Trash2, CheckCircle2, RefreshCcw, Search, RotateCcw } from "lucide-react";
 import { axiosInstance } from "../Tool";
 
-export default function PreHistoryPage() {
+export default function HistoryPage() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const memberId = useMemo(() => Number(localStorage.getItem("loginMemberId")), []);
+
+  // ✅ PRE/POST 탭 (POST 완료 후 navigate state로 넘어오면 POST로 시작)
+  const initialPhase = location?.state?.phase === "POST" ? "POST" : "PRE";
+  const [phase, setPhase] = useState(initialPhase); // "PRE" | "POST"
+
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
   const [error, setError] = useState("");
   const [items, setItems] = useState([]);
 
-  // ✅ 검색 필터 상태 (상태/시작일/종료일만)
+  // 검색 필터
   const [statusFilter, setStatusFilter] = useState(""); // "" | "IN_PROGRESS" | "COMPLETED"
   const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
   const [toDate, setToDate] = useState(""); // YYYY-MM-DD
 
-  // ✅ 페이징 상태
-  const [page, setPage] = useState(0);     // 현재 페이지 (0-base)
-  const [size] = useState(5);              // 페이지 사이즈 (고정 5)
-  const [pageInfo, setPageInfo] = useState(null); // PageResponseDTO 전체
+  // 페이징
+  const [page, setPage] = useState(0);
+  const [size] = useState(5);
+  const [pageInfo, setPageInfo] = useState(null);
 
   const buildParams = () => {
     const params = { memberId, page, size };
-
     if (statusFilter) params.status = statusFilter;
 
-    // ✅ LocalDateTime으로 받는 백엔드에 맞춰 시간 붙여서 전송
     if (fromDate) params.from = `${fromDate}T00:00:00`;
     if (toDate) params.to = `${toDate}T23:59:59`;
 
-    // ✅ dateType은 안 보냄 (컨트롤러 defaultValue="STARTED"가 알아서 처리)
     return params;
   };
 
+  // ✅ phase에 따라 history endpoint 변경
   const loadHistory = async () => {
-    const res = await axiosInstance.get("/checklists/pre/history", {
-      params: buildParams(),
-    });
-    return res.data; // PageResponseDTO
+    const url = phase === "PRE" ? "/checklists/pre/history" : "/checklists/post/history";
+    const res = await axiosInstance.get(url, { params: buildParams() });
+    return res.data; // PageResponseDTO 또는 Page 객체(백엔드에 맞춤)
   };
 
+  // ✅ 완료 처리: PRE는 기존 API 유지 / POST는 우리가 만든 complete 사용
   const completeSession = async (sessionId) => {
-    await axiosInstance.post(`/checklists/pre/session/${sessionId}/complete`, null, {
-      params: { memberId },
-    });
+    if (phase === "PRE") {
+      await axiosInstance.post(`/checklists/pre/session/${sessionId}/complete`, null, { params: { memberId } });
+      return;
+    }
+    await axiosInstance.patch(`/checklists/post/session/${sessionId}/complete`);
   };
 
+  // ✅ 삭제 처리: POST 삭제 API 없으면 우선 PRE만 살리고, POST는 나중에 추가 가능
   const deleteSession = async (sessionId) => {
-    await axiosInstance.delete(`/checklists/pre/session/${sessionId}`, {
-      params: { memberId },
-    });
+    if (phase === "PRE") {
+      await axiosInstance.delete(`/checklists/pre/session/${sessionId}`, {
+        params: { memberId },
+      });
+      return;
+    }
+
+    // ✅ POST 삭제
+    await axiosInstance.delete(`/checklists/post/session/${sessionId}`);
   };
+
 
   const refresh = async () => {
     try {
@@ -83,10 +97,17 @@ export default function PreHistoryPage() {
   useEffect(() => {
     refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, phase]);
+
+  // 탭 변경하면 0페이지부터 다시
+  const changePhase = (next) => {
+    setPhase(next);
+    setPage(0);
+  };
 
   const openSession = (sessionId) => {
-    navigate("/checklist/pre", { state: { sessionId } });
+    if (phase === "PRE") navigate("/checklist/pre", { state: { sessionId } });
+    else navigate("/checklist/post", { state: { sessionId } }); // ✅ 너 라우트에 맞게 수정
   };
 
   const fmt = (v) => {
@@ -99,7 +120,6 @@ export default function PreHistoryPage() {
       alert("기간 설정이 올바르지 않습니다.");
       return;
     }
-
     if (page === 0) await refresh();
     else setPage(0);
   };
@@ -108,7 +128,6 @@ export default function PreHistoryPage() {
     setStatusFilter("");
     setFromDate("");
     setToDate("");
-
     if (page === 0) await refresh();
     else setPage(0);
   };
@@ -151,9 +170,15 @@ export default function PreHistoryPage() {
     }
   };
 
+  const title = phase === "PRE" ? "사전 체크 기록보기" : "사후 체크 기록보기";
+  const header = phase === "PRE" ? "내 사전 체크리스트 기록" : "내 사후 체크리스트 기록";
+  const desc =
+    phase === "PRE"
+      ? "완료/진행 중인 사전 세션을 다시 열거나, 완료/삭제할 수 있어요."
+      : "완료/진행 중인 사후 세션을 다시 열거나, 완료/삭제할 수 있어요.";
+
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
-      {/* 상단 바 */}
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
           <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
@@ -163,7 +188,7 @@ export default function PreHistoryPage() {
 
           <div className="d-flex align-items-center gap-2 fw-bold" style={{ color: "#059669" }}>
             <FolderOpen className="me-1" />
-            사전 체크 기록보기
+            {title}
           </div>
 
           <button className="btn btn-sm btn-outline-emerald rounded-pill" onClick={refresh} disabled={loading}>
@@ -177,14 +202,33 @@ export default function PreHistoryPage() {
         <div className="container">
           <div className="mx-auto" style={{ maxWidth: 980 }}>
             <div className="border rounded-5 p-4 p-lg-5 shadow-sm bg-white">
+
+              {/* ✅ PRE/POST 탭 */}
+              <div className="d-flex gap-2 mb-3">
+                <button
+                  className={`btn btn-sm rounded-pill ${phase === "PRE" ? "btn-success" : "btn-outline-secondary"}`}
+                  onClick={() => changePhase("PRE")}
+                  disabled={loading}
+                >
+                  사전(PRE)
+                </button>
+                <button
+                  className={`btn btn-sm rounded-pill ${phase === "POST" ? "btn-success" : "btn-outline-secondary"}`}
+                  onClick={() => changePhase("POST")}
+                  disabled={loading}
+                >
+                  사후(POST)
+                </button>
+              </div>
+
               <div className="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
                 <div>
-                  <h2 className="fw-bold mb-1">내 사전(PRE) 체크리스트 기록</h2>
-                  <p className="text-secondary mb-0">완료/진행 중인 세션을 다시 열거나, 완료/삭제할 수 있어요.</p>
+                  <h2 className="fw-bold mb-1">{header}</h2>
+                  <p className="text-secondary mb-0">{desc}</p>
                 </div>
               </div>
 
-              {/* ✅ 검색 패널 (상태/시작일/종료일만) */}
+              {/* 검색 패널 */}
               <div className="p-3 p-lg-4 rounded-4 border bg-white mb-4">
                 <div className="row g-3 align-items-end">
                   <div className="col-12 col-md-4">
@@ -245,7 +289,6 @@ export default function PreHistoryPage() {
               </div>
 
               {loading && <div className="p-4 rounded-4 border text-center bg-white">불러오는 중…</div>}
-
               {!loading && error && <div className="p-4 rounded-4 border text-danger bg-white">에러: {error}</div>}
 
               {!loading && !error && items.length === 0 && (
@@ -319,6 +362,7 @@ export default function PreHistoryPage() {
                       })}
                     </tbody>
                   </table>
+
                   {pageInfo && pageInfo.totalPages > 1 && (
                     <div className="d-flex justify-content-between align-items-center mt-3">
                       <div className="text-secondary small">
@@ -346,7 +390,6 @@ export default function PreHistoryPage() {
                   )}
                 </div>
               )}
-
             </div>
           </div>
         </div>
