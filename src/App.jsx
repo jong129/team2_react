@@ -25,6 +25,8 @@ import { useEffect, useState } from "react";
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminLoginHistory from './components/admin/AdminLoginHistory';
 import AdminUserList from './components/admin/AdminUserList';
+import Member_Mypage from './components/member/member_mymage';
+import Member_Mypage_Update from './components/member/member_mypage_update';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -65,6 +67,9 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/login_history" element={<AdminLoginHistory />} />
           <Route path="/admin/userlist" element={<AdminUserList />} />
+          <Route path="/member/mypage" element={<Member_Mypage />} />
+          <Route path="/member/mypage/update" element={<Member_Mypage_Update />} />
+          
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />

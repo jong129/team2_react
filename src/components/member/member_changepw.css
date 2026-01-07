@@ -1,63 +1,234 @@
-.changepw-wrapper {
-  min-height: 100vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #f5f6f8;
+/* ===============================
+   Home.jsx 톤 (emerald) - ChangePw 전용
+   =============================== */
+
+/* 페이지 기본 */
+.hs-page {
+  font-family: 'Pretendard', sans-serif;
+  background: #ffffff;
 }
 
-.changepw-card {
-  width: 360px;
-  padding: 32px;
-  background: #ffffff;
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+/* Hero 섹션 */
+.hs-hero {
+  position: relative;
+  padding: 48px 0;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.hs-hero-bg {
+  position: absolute;
+  inset: 0;
+  background: #ecfdf5;
+  clip-path: polygon(0px 0px, 100% 0px, 100% 80%, 0% 100%);
+  z-index: 0;
+}
+
+.hs-container {
+  width: 100%;
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 0 16px;
+}
+
+.hs-hero-content {
+  position: relative;
+  z-index: 1;
+}
+
+/* 가운데 정렬 */
+.hs-center {
   display: flex;
   flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
-.changepw-title {
-  text-align: center;
-  margin-bottom: 24px;
+/* 카드 */
+.hs-card {
+  width: 100%;
+  max-width: 520px;
+  background: #fff;
+  border-radius: 28px;
+  padding: 28px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+  border: 1px solid rgba(0,0,0,0.04);
 }
 
-.changepw-error-title {
-  text-align: center;
+/* 브랜딩(에러 페이지 상단) */
+.hs-brand {
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.hs-brand-icon {
+  margin-right: 8px;
+  color: #059669;
+}
+
+.hs-brand-text {
+  font-weight: 800;
+  color: #059669;
+}
+
+/* 상단 타이틀 영역 */
+.hs-title-row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.hs-icon-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #ecfdf5;
+  color: #059669;
+}
+
+.hs-title {
+  font-weight: 900;
+  color: #059669;
+  font-size: 18px;
+}
+
+.hs-subtext {
+  color: #64748b;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* 정보 박스 */
+.hs-info-box {
+  background: #f8fafc;
+  border: 1px solid rgba(0,0,0,0.06);
+  border-radius: 16px;
+  padding: 14px;
   margin-bottom: 16px;
 }
 
-.changepw-input {
-  height: 44px;
+.hs-info-label {
+  color: #64748b;
+  font-size: 12px;
+  margin-bottom: 6px;
+}
+
+.hs-info-strong {
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.hs-info-email {
+  color: #64748b;
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+/* 폼 */
+.hs-field {
   margin-bottom: 12px;
-  padding: 0 12px;
-  font-size: 14px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
 }
 
-.changepw-input:focus {
-  outline: none;
-  border-color: #4f46e5;
+.hs-label {
+  display: block;
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 8px;
+  color: #0f172a;
 }
 
-.changepw-btn {
+.hs-input {
+  width: 100%;
   height: 44px;
+  padding: 0 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 999px;
+  font-size: 14px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.hs-input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12);
+}
+
+/* 알림 */
+.hs-alert {
   margin-top: 8px;
-  background: #4f46e5;
-  color: #ffffff;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  font-size: 13px;
+}
+
+.hs-alert-danger {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #dc2626;
+}
+
+/* 버튼 */
+.hs-actions {
+  width: 100%;
+  display: grid;
+}
+
+.hs-actions-gap {
+  gap: 10px;
+}
+
+.hs-btn {
+  height: 44px;
+  border-radius: 999px;
+  font-weight: 800;
   cursor: pointer;
+  border: none;
+  transition: all 0.2s ease;
 }
 
-.changepw-btn:hover {
-  background: #4338ca;
+.hs-btn-primary {
+  background: #059669;
+  color: #fff;
 }
 
-.changepw-message {
+.hs-btn-primary:hover {
+  background: #047857;
+  transform: translateY(-1px);
+}
+
+.hs-btn-outline {
+  background: transparent;
+  border: 1px solid #059669;
+  color: #059669;
+}
+
+.hs-btn-outline:hover {
+  background: #059669;
+  color: #fff;
+}
+
+.hs-btn-icon {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+/* 에러 타이틀 */
+.hs-error-title {
+  font-weight: 900;
+  margin: 6px 0 10px;
+  color: #dc2626;
+}
+
+/* 하단 문구 */
+.hs-footnote {
   margin-top: 12px;
   text-align: center;
-  font-size: 13px;
-  color: #e11d48;
+  color: #94a3b8;
+  font-size: 12px;
 }

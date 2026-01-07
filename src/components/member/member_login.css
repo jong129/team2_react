@@ -4,62 +4,86 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background-color: #f5f5f5;
+  background-color: #f8fafc; /* 홈 스타일 배경 */
+  font-family: 'Pretendard', sans-serif;
 }
 
 .login-box {
   width: 500px;
   padding: 40px;
   background-color: #ffffff;
-  border-radius: 8px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .login-title {
   text-align: center;
   margin-bottom: 30px;
+  font-weight: 900;
+  color: #0f172a;
 }
 
 .login-box input {
   width: 100%;
-  height: 40px;
-  margin-bottom: 15px;
-  padding: 0 10px;
+  height: 44px;
+  margin-bottom: 12px;
+  padding: 0 14px;
   box-sizing: border-box;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.15s ease;
+}
+
+.login-box input:focus {
+  border-color: #059669;
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12);
 }
 
 .login-box button {
   width: 100%;
-  height: 45px;
-  background-color: #222;
+  height: 46px;
+  background-color: #059669; /* emerald */
   color: #fff;
   border: none;
   cursor: pointer;
+  border-radius: 12px;
+  font-weight: 800;
+  transition: all 0.2s ease;
 }
 
 .login-box button:hover {
-  background-color: #444;
+  background-color: #047857;
+  transform: translateY(-1px);
 }
 
 .login-links {
-  margin-top: 20px;
+  margin-top: 18px;
   text-align: center;
   font-size: 14px;
+  color: #64748b;
 }
 
 .login-links span {
   margin: 0 6px;
+  cursor: pointer;
 }
 
 .login-links a {
   text-decoration: none;
-  color: #333;
+  color: #059669;
+  font-weight: 700;
+}
+
+.login-links a:hover {
+  text-decoration: underline;
 }
 
 .login-options {
   display: flex;
   justify-content: space-between;
-  margin: 12px 0 20px;
+  margin: 12px 0 18px;
 }
 
 .login-options label {
@@ -67,18 +91,20 @@
   align-items: center;
   gap: 6px;
   font-size: 14px;
-  white-space: nowrap; /* ⭐ 줄바꿈 방지 핵심 */
+  white-space: nowrap;
+  color: #334155;
 }
 
 .login-options input[type="checkbox"] {
   width: 16px;
   height: 16px;
+  accent-color: #059669; /* 체크박스 emerald */
 }
 
 .login-button-row {
   display: flex;
   gap: 10px;
-  margin-top: 20px;
+  margin-top: 16px;
 }
 
 .login-btn,
@@ -86,4 +112,27 @@
   width: 50%;
   padding: 12px;
   font-size: 16px;
+  border-radius: 12px;
+  font-weight: 800;
+}
+
+/* 버튼 2개를 구분하고 싶으면(선택) */
+.login-btn {
+  background-color: #059669;
+  color: #fff;
+}
+
+.login-btn:hover {
+  background-color: #047857;
+}
+
+.test-btn {
+  background-color: #ffffff;
+  color: #059669;
+  border: 1px solid #059669;
+}
+
+.test-btn:hover {
+  background-color: #059669;
+  color: #fff;
 }

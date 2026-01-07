@@ -3,22 +3,25 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #f5f6f8;
+  background: #f8fafc; /* 홈 스타일 배경 */
 }
 
 .findpw-card {
   width: 360px;
   padding: 32px;
   background: #ffffff;
-  border-radius: 12px;
+  border-radius: 16px; /* 살짝 더 둥글게 */
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
+  border: 1px solid rgba(0, 0, 0, 0.04);
 }
 
 .findpw-title {
   text-align: center;
   margin-bottom: 24px;
+  font-weight: 800;
+  color: #0f172a;
 }
 
 .findpw-input {
@@ -26,33 +29,37 @@
   margin-bottom: 12px;
   padding: 0 12px;
   font-size: 14px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  outline: none;
+  transition: all 0.15s ease;
 }
 
 .findpw-input:focus {
-  outline: none;
-  border-color: #4f46e5;
+  border-color: #059669; /* emerald */
+  box-shadow: 0 0 0 4px rgba(5, 150, 105, 0.12);
 }
 
 .findpw-btn {
   height: 44px;
   margin-top: 8px;
-  background: #4f46e5;
+  background: #059669; /* emerald */
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 800;
   border: none;
-  border-radius: 6px;
+  border-radius: 12px;
   cursor: pointer;
+  transition: all 0.2s ease;
 }
 
 .findpw-btn:hover {
-  background: #4338ca;
+  background: #047857;
+  transform: translateY(-1px);
 }
 
 .findpw-message {
   margin-top: 12px;
   text-align: center;
   font-size: 13px;
-  color: #555;
+  color: #64748b; /* 홈 스타일 텍스트 */
 }
