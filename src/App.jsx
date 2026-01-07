@@ -7,6 +7,10 @@ import ChecklistHome from './components/checklist/ChecklistHome';
 import PreChecklistPage from './components/checklist/PreChecklistPage';
 import HistoryPage from "./components/checklist/HistoryPage";
 import PostChecklistPage from "./components/checklist/PostChecklistPage";
+import AdminChecklistManage from "./components/checklist/AdminChecklistManage";
+import AdminChecklistTemplatesPage from "./components/checklist/AdminChecklistTemplatesPage";
+import AdminChecklistTemplateEditPage from "./components/checklist/AdminChecklistTemplateEditPage";
+import AdminChecklistTemplateCreatePage from "./components/checklist/AdminChecklistTemplateCreatePage";
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
@@ -48,6 +52,10 @@ function App() {
           <Route path='/checklist/pre' element={<PreChecklistPage />} />
           <Route path="/checklist/history" element={<HistoryPage />} />
           <Route path="/checklist/post" element={<PostChecklistPage />} />
+          <Route path="/admin/checklist" element={<AdminChecklistManage />} />
+          <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
+          <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
+          <Route path="/admin/checklists/templates/new" element={<AdminChecklistTemplateCreatePage />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />

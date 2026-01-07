@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import { Users, ListChecks, MessageSquareText, BarChart3 } from "lucide-react";
+import { Users, ListChecks, MessageSquareText, BarChart3, ClipboardList } from "lucide-react";
 
 const AdminDashboard = () => {
   const navigate = useNavigate();
@@ -84,6 +84,33 @@ const AdminDashboard = () => {
                 </div>
                 <div className="text-secondary small mt-1">
                   기간 조회 
+                </div>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        {/* ✅ 추가: 체크리스트 관리 */}
+        <div className="col-md-6">
+          <button
+            type="button"
+            className="w-100 text-start border-0 shadow-sm rounded-4 p-4"
+            style={{ backgroundColor: "#f8fafc" }}
+            onClick={() => navigate("/admin/checklist")}
+          >
+            <div className="d-flex align-items-center gap-3">
+              <div
+                className="rounded-circle d-inline-flex align-items-center justify-content-center"
+                style={{ width: 52, height: 52, backgroundColor: "white" }}
+              >
+                <ClipboardList color="#059669" />
+              </div>
+              <div>
+                <div className="fw-bold fs-4" style={{ color: "#059669" }}>
+                  체크리스트 관리
+                </div>
+                <div className="text-secondary small mt-1">
+                  템플릿 / 항목 등록 · 수정 · 비활성화
                 </div>
               </div>
             </div>
