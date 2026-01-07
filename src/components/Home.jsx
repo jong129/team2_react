@@ -1,19 +1,21 @@
 // src/components/Home.jsx
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Camera, ClipboardCheck, MessageSquareText, ShieldAlert, CheckCircle2, Scan,
   User, ArrowRight, Menu, FileSearch
 } from 'lucide-react';
 import { useNavigate, Link } from "react-router-dom";
+import { axiosInstance } from "./Tool";
 
 const Home = ({ isLoggedIn }) => {
   const navigate = useNavigate();
 
-  const [memberName, setMemberName] = React.useState(
+  const [memberName, setMemberName] = useState(
     localStorage.getItem("memberName") || "사용자"
   );
+  const [isAdmin, setIsAdmin] = useState(false); // 관리자
 
-  React.useEffect(() => {
+  useEffect(() => {
     const syncName = () => {
       setMemberName(localStorage.getItem("memberName") || "사용자");
     };
@@ -21,6 +23,36 @@ const Home = ({ isLoggedIn }) => {
     window.addEventListener("auth-change", syncName);
     return () => window.removeEventListener("auth-change", syncName);
   }, []);
+
+  const fetchIsAdmin = async () => {
+    const memberId = localStorage.getItem("loginMemberId");
+
+    if (!isLoggedIn || !memberId) {
+      setIsAdmin(false);
+      return;
+    }
+
+    try {
+      // 백엔드: MemberRoleCont -> /member_role/is_admin/{memberId}
+      const res = await axiosInstance.get(`/member_role/is_admin/${memberId}`);
+      setIsAdmin(!!res.data?.isAdmin);
+    } catch (e) {
+      setIsAdmin(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchIsAdmin();
+
+    const syncAuth = () => {
+      setMemberName(localStorage.getItem("memberName") || "사용자");
+      fetchIsAdmin();
+    };
+
+    window.addEventListener("auth-change", syncAuth);
+    return () => window.removeEventListener("auth-change", syncAuth);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
 
   // 로그인이 필요한 기능 클릭 시 처리 함수
   const handleProtectedAction = (e, actionName) => {
@@ -90,20 +122,36 @@ const Home = ({ isLoggedIn }) => {
               <li className="nav-item"><a className="nav-link mx-2" href="#analysis">문서 분석</a></li>
               <li className="nav-item">
                 <a className="nav-link mx-2" onClick={handleAiBotClick} style={{ cursor: "pointer" }}>
-                  AI 비서
+                  AI 챗봇
                 </a>
               </li>
               <li className="nav-item"><a className="nav-link mx-2" href="#checklist">체크리스트</a></li>
+              <li className="nav-item">
+                <a className="nav-link mx-2" onClick={() => navigate("/aibot")} style={{ cursor: "pointer" }}>
+                  AI 챗봇 대화 내역
+                </a>
+              </li>
             </ul>
 
             <div className="d-flex align-items-center gap-2">
               {isLoggedIn ? (
-                <button
-                  className="btn btn-sm btn-outline-secondary rounded-pill"
-                  onClick={handleLogout}
-                >
-                  로그아웃
-                </button>
+                <>
+                  {isAdmin && (
+                    <button
+                      className="btn btn-sm btn-outline-emerald rounded-pill"
+                      onClick={() => navigate("/admin/dashboard")}
+                    >
+                      관리자 대시보드
+                    </button>
+                  )}
+
+                  <button
+                    className="btn btn-sm btn-outline-secondary rounded-pill"
+                    onClick={handleLogout}
+                  >
+                    로그아웃
+                  </button>
+                </>
               ) : (
                 <a
                   href="/login"
@@ -113,6 +161,7 @@ const Home = ({ isLoggedIn }) => {
                 </a>
               )}
             </div>
+
           </div>
         </div>
       </nav>
@@ -206,12 +255,26 @@ const Home = ({ isLoggedIn }) => {
                     className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
                     style={{ background: "transparent" }}
                     data-bs-dismiss="offcanvas"
-                    onClick={() => navigate("/aibot")}   // ✅ 여기만 있으면 됨
+                    onClick={() => navigate("/aibot")}
                   >
                     <MessageSquareText className="me-3" color="#059669" />
                     챗봇 대화 내역
                   </button>
                 </li>
+                {isAdmin && (
+                  <li className="mb-2">
+                    <button
+                      type="button"
+                      className="btn w-100 text-start d-flex align-items-center text-dark fw-bold fs-5 p-2"
+                      style={{ background: "transparent" }}
+                      data-bs-dismiss="offcanvas"
+                      onClick={() => navigate("/admin/chatbotstats")}
+                    >
+                      <MessageSquareText className="me-3" color="#059669" />
+                      챗봇 통계
+                    </button>
+                  </li>
+                )}
               </>
             )}
           </ul>
@@ -384,7 +447,7 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#059669" />임대인 신분증 진위 확인</li>
                 </ul>
                 <Link
-                  to="/checklist/"
+                  to="/checklist/pre"
                   className="btn btn-sm rounded-pill mt-2 fw-bold"
                   style={{ color: '#059669', border: '1px solid #059669' }}
                 >
@@ -401,13 +464,7 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />전입신고 및 확정일자 받기</li>
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />시설물 파손 상태 사진 촬영</li>
                 </ul>
-                <Link
-                  to="/checklist/"
-                  className="btn btn-sm rounded-pill mt-2 fw-bold"
-                  style={{ color: '#059669', border: '1px solid #059669' }}
-                >
-                  전체 보기
-                </Link>
+                <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#10b981', border: '1px solid #10b981' }}>전체 보기</a>
               </div>
             </div>
 
@@ -444,9 +501,14 @@ const Home = ({ isLoggedIn }) => {
               <ul className="list-unstyled small text-secondary">
                 {isLoggedIn ? (
                   <>
-                    <li className="mb-2"><a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a></li>
-                    <li className="mb-2"><a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a></li>
-                    {/* ✅ 챗봇 대화 내역 추가 */}
+                    <li className="mb-2">
+                      <a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a>
+                    </li>
+                    <li className="mb-2">
+                      <a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a>
+                    </li>
+
+                    {/* ✅ 챗봇 대화 내역 */}
                     <li className="mb-2">
                       <button
                         type="button"
@@ -457,6 +519,21 @@ const Home = ({ isLoggedIn }) => {
                         챗봇 대화 내역
                       </button>
                     </li>
+
+                    {/* ✅ 관리자만 챗봇 통계 */}
+                    {isAdmin && (
+                      <li className="mb-2">
+                        <button
+                          type="button"
+                          onClick={() => navigate("/admin/chatbotstats")}
+                          className="btn btn-link p-0 text-decoration-none text-secondary small"
+                          style={{ fontSize: '0.875rem' }}
+                        >
+                          챗봇 통계
+                        </button>
+                      </li>
+                    )}
+
                     <li className="mb-2">
                       <button
                         onClick={handleLogout}
@@ -474,6 +551,7 @@ const Home = ({ isLoggedIn }) => {
                     <li className="mb-2"><a href="#" className="text-decoration-none text-secondary">고객센터</a></li>
                   </>
                 )}
+
               </ul>
             </div>
           </div>

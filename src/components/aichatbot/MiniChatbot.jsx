@@ -1,7 +1,8 @@
 // src/components/aichatbot/MiniChatBot.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { MessageSquareText, X, ArrowRight, MessageCircle, Plus, Trash2 } from "lucide-react";
+import { MessageSquareText, X, ArrowRight, MessageCircle, Plus, Trash2, ThumbsUp, ThumbsDown, RefreshCcw, Copy } from "lucide-react";
 import { axiosInstance } from "../Tool";
+import "./MiniChatBot.css";
 
 const DEFAULT_MESSAGES = [
   { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
@@ -22,8 +23,15 @@ const normalizeMessages = (serverMessages) => {
     role: normalizeRole(m.role),
     content: m.content ?? "",
     references: m.references ?? [],
+
+    // ✅ 서버가 내려주는 chatId / 집계 / 내 피드백까지 받기
+    chatId: m.chatId ?? m.id ?? m.chat_id ?? null,
+    likeCount: m.likeCount ?? 0,
+    dislikeCount: m.dislikeCount ?? 0,
+    myFeedback: m.myFeedback ?? null,
   }));
 };
+
 
 // grouped DTO -> flat sessions (최근 목록용)
 const flattenGroupedSessions = (data) => {
@@ -36,6 +44,7 @@ const flattenGroupedSessions = (data) => {
   }
   return out;
 };
+
 
 export default function MiniChatbot({ isLoggedIn }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
@@ -118,6 +127,7 @@ export default function MiniChatbot({ isLoggedIn }) {
             return sid;
           }
         } catch (err) {
+          console.warn(`[세션 생성 실패] ${c.method.toUpperCase()} ${c.url}`, err);
           // 다음 후보로 계속
         }
       }
@@ -155,6 +165,83 @@ export default function MiniChatbot({ isLoggedIn }) {
     } catch (e) {
       console.error("세션 삭제 실패:", e);
       alert("삭제에 실패했습니다. (권한/서버 로그 확인)");
+    }
+  };
+
+  const copyText = async (text) => {
+    try {
+      // 1) 최신 API 사용 가능 + 보안 컨텍스트(https/localhost)일 때
+      if (navigator?.clipboard?.writeText && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        alert("복사되었습니다!");
+        return;
+      }
+
+      // 2) fallback: execCommand 방식 (구형/권한제한/HTTP에서도 동작하는 경우 많음)
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.top = "-9999px";
+      ta.style.left = "-9999px";
+      document.body.appendChild(ta);
+      ta.select();
+
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+
+      if (!ok) throw new Error("execCommand copy failed");
+      alert("복사되었습니다!");
+    } catch (err) {
+      console.error("복사 실패:", err);
+      alert("복사에 실패했습니다. (브라우저 권한/HTTPS 환경을 확인하세요)");
+    }
+  };
+
+
+  const sendFeedback = async (chatId, liked) => {
+    const res = await axiosInstance.post(`/api/chat/messages/${chatId}/feedback`, { liked });
+
+    const { likeCount, dislikeCount, myFeedback } = res.data;
+
+    setMessages(prev =>
+      prev.map(m =>
+        m.chatId === chatId
+          ? { ...m, likeCount, dislikeCount, myFeedback }
+          : m
+      )
+    );
+  };
+
+  const regenerate = async () => {
+    if (loading) return;
+
+    // 마지막 user 질문 찾기
+    const lastUser = [...messages].reverse().find(m => m.role === "user");
+    if (!lastUser) return;
+
+    setLoading(true);
+    try {
+      const res = await axiosInstance.post("/api/rag/ask", {
+        sessionId,
+        question: lastUser.content,
+        regenerate: true, // 서버에서 temperature 올리는 용도로(선택)
+      });
+
+      setMessages(prev => [
+        ...prev,
+        {
+          role: "ai",
+          content: res.data.answer ?? "(답변이 비어있습니다)",
+          chatId: res.data.assistantChatId,   // ✅ 중요
+          likeCount: 0,
+          dislikeCount: 0,
+          myFeedback: null,
+          references: res.data.references ?? [],
+        },
+      ]);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -237,8 +324,13 @@ export default function MiniChatbot({ isLoggedIn }) {
           role: "ai",
           content: res.data.answer ?? "(답변이 비어있습니다)",
           references: res.data.references ?? [],
+          chatId: res.data.assistantChatId, // ✅ 추가
+          likeCount: 0,
+          dislikeCount: 0,
+          myFeedback: null,
         },
       ]);
+
 
       // 메시지 쌓였으니 최근 세션 목록도 갱신(너무 자주 싫으면 throttle 가능)
       await loadRecentSessions();
@@ -378,22 +470,75 @@ export default function MiniChatbot({ isLoggedIn }) {
 
           {/* body */}
           <div className="flex-grow-1 p-3 bg-light overflow-auto" style={{ fontSize: "0.9rem" }}>
-            {messages.map((msg, idx) => (
-              <div
-                key={idx}
-                className="p-3 rounded-4 mb-2 shadow-sm"
-                style={{
-                  maxWidth: "85%",
-                  marginLeft: msg.role === "user" ? "auto" : 0,
-                  backgroundColor: msg.role === "user" ? "#059669" : "#ffffff",
-                  color: msg.role === "user" ? "white" : "black",
-                  whiteSpace: "pre-wrap",
-                  overflowWrap: "anywhere",
-                }}
-              >
-                {msg.content}
-              </div>
-            ))}
+            {messages.map((msg, idx) => {
+              const isUser = msg.role === "user";
+              const isAi = msg.role === "ai";
+
+              return (
+                <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start" }}>
+                  <div
+                    className="p-3 rounded-4 mb-1 shadow-sm"
+                    style={{
+                      maxWidth: "85%",
+                      backgroundColor: isUser ? "#059669" : "#ffffff",
+                      color: isUser ? "white" : "black",
+                      whiteSpace: "pre-wrap"
+                    }}
+                  >
+                    {msg.content}
+                  </div>
+
+                  {/* ✅ AI 답변 액션 */}
+                  {isAi && msg.chatId && (
+                    <div className="msg-actions" style={{ maxWidth: "85%" }}>
+                      <button
+                        type="button"
+                        className={`action-icon ${msg.myFeedback === 1 ? "active like" : ""}`}
+                        onClick={() => sendFeedback(msg.chatId, true)}
+                        title="좋아요"
+                        aria-label="좋아요"
+                      >
+                        <ThumbsUp size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className={`action-icon ${msg.myFeedback === -1 ? "active dislike" : ""}`}
+                        onClick={() => sendFeedback(msg.chatId, false)}
+                        title="싫어요"
+                        aria-label="싫어요"
+                      >
+                        <ThumbsDown size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="action-icon"
+                        onClick={regenerate}
+                        title="다시작성"
+                        aria-label="다시작성"
+                        disabled={loading}
+                      >
+                        <RefreshCcw size={18} />
+                      </button>
+
+                      <button
+                        type="button"
+                        className="action-icon"
+                        onClick={() => copyText(msg.content)}
+                        title="복사"
+                        aria-label="복사"
+                      >
+                        <Copy size={18} />
+                      </button>
+                    </div>
+                  )}
+
+
+                </div>
+              );
+            })}
+
 
             {loading && (
               <div className="p-3 rounded-4 bg-white shadow-sm">
