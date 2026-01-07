@@ -51,18 +51,6 @@ const Document = () => {
 
       setResult(data);
 
-      // 분석 결과를 summary로 만들기
-      const summaryText =
-        typeof data === "string"
-          ? data.slice(0, 1500)
-          : (data.summary ?? JSON.stringify(data).slice(0, 1500));
-
-      await axiosInstance.post("/api/chat/sessions/latest/context", {
-        refType: "DOCUMENT_ANALYSIS",
-        title: "문서 분석 결과",
-        summary: summaryText
-      });
-
 
     } catch (err) {
       console.error(err);
