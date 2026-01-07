@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { axiosInstance } from '../Tool';
+import './member_findid.css';
 
 const Member_FindId = () => {
   const navigate = useNavigate();
@@ -53,46 +54,51 @@ const Member_FindId = () => {
   };
 
   return (
-    <div className="container mt-5" style={{ maxWidth: '420px' }}>
-      <h4 className="mb-4 text-center">아이디 찾기</h4>
+    <div className="findid-wrapper">
+      <div className="findid-card">
+        <div className="findid-badge">계정 찾기</div>
+        <h4 className="findid-title">아이디 찾기</h4>
+        <p className="findid-subtitle">가입한 이메일로 아이디를 확인합니다.</p>
 
-      <form onSubmit={handleSubmit}>
-        <div className="mb-3">
-          <label className="form-label">이름</label>
-          <input
-            type="text"
-            name="name"
-            className="form-control"
-            value={form.name}
-            onChange={handleChange}
-            placeholder="이름 입력"
-          />
+        <form onSubmit={handleSubmit}>
+          <div className="findid-field">
+            <label className="findid-label">이름</label>
+            <input
+              type="text"
+              name="name"
+              className="findid-input"
+              value={form.name}
+              onChange={handleChange}
+              placeholder="이름 입력"
+            />
+          </div>
+
+          <div className="findid-field">
+            <label className="findid-label">이메일</label>
+            <input
+              type="email"
+              name="email"
+              className="findid-input"
+              value={form.email}
+              onChange={handleChange}
+              placeholder="가입한 이메일 입력"
+            />
+          </div>
+
+          <button type="submit" className="findid-btn">
+            아이디 찾기
+          </button>
+        </form>
+
+        <div className="findid-footer">
+          <button
+            className="findid-link"
+            type="button"
+            onClick={() => navigate('/login')}
+          >
+            로그인 페이지로 이동
+          </button>
         </div>
-
-        <div className="mb-3">
-          <label className="form-label">이메일</label>
-          <input
-            type="email"
-            name="email"
-            className="form-control"
-            value={form.email}
-            onChange={handleChange}
-            placeholder="가입한 이메일 입력"
-          />
-        </div>
-
-        <button type="submit" className="btn btn-primary w-100">
-          아이디 찾기
-        </button>
-      </form>
-
-      <div className="text-center mt-3">
-        <button
-          className="btn btn-link p-0"
-          onClick={() => navigate('/login')}
-        >
-          로그인 페이지로 이동
-        </button>
       </div>
     </div>
   );
