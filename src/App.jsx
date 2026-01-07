@@ -27,6 +27,12 @@ import AdminLoginHistory from './components/admin/AdminLoginHistory';
 import AdminUserList from './components/admin/AdminUserList';
 import Member_Mypage from './components/member/member_mymage';
 import Member_Mypage_Update from './components/member/member_mypage_update';
+import AdminActivityHistory from './components/admin/AdminActivityHistory';
+import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
+import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
+import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
+
+
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -69,7 +75,11 @@ function App() {
           <Route path="/admin/userlist" element={<AdminUserList />} />
           <Route path="/member/mypage" element={<Member_Mypage />} />
           <Route path="/member/mypage/update" element={<Member_Mypage_Update />} />
-          
+          <Route path="/admin/activity_history" element={<AdminActivityHistory />} />
+          <Route path="/admin/withdraw_history" element={<AdminWithDrawHistory />} />
+          <Route path="/admin/change_pw_history" element={<AdminChangePwHistory />} />
+          <Route path="/admin/user_update_history" element={<AdminUserUpdateHistory />} />
+
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
