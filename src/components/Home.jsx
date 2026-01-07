@@ -109,6 +109,7 @@ const Home = () => {
     try {
       // ✅ 서버 세션 끊기 (핵심)
       await axiosInstance.post("/member/logout");
+    // eslint-disable-next-line no-unused-vars
     } catch (e) {
       // 이미 세션이 없거나 네트워크 이슈여도, UI 정리는 해야 하니 무시 가능
     } finally {
