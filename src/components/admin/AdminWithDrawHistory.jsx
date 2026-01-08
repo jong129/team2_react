@@ -20,6 +20,9 @@ const AdminWithDrawHistory = () => {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  // 복구 요청 중인 memberId (버튼 개별 로딩 처리)
+  const [restoringId, setRestoringId] = useState(null);
+
   const currentPage = pageInfo?.page ?? pageInfo?.number ?? page;
   const totalPages = pageInfo?.totalPages ?? 0;
 
@@ -100,6 +103,33 @@ const AdminWithDrawHistory = () => {
     }
   };
 
+  // ✅ 복구(STATUS를 ACTIVE로 되돌림)
+  // 전제: POST /api/admin/members/{memberId}/restore
+  const restoreMember = async (memberId, loginId) => {
+    if (!memberId) {
+      alert("memberId가 없어 복구할 수 없습니다.");
+      return;
+    }
+
+    const label = loginId ? `${loginId} 계정` : `회원(${memberId})`;
+    if (!window.confirm(`${label}을(를) 복구(활성화)할까요?`)) return;
+
+    setRestoringId(memberId);
+    try {
+      await axiosInstance.post(`/api/admin/members/${memberId}/restore`);
+      alert("복구 완료");
+
+      // 복구 후 리스트 다시 조회
+      fetchList();
+    } catch (err) {
+      if (err.response?.status === 401) alert("로그인이 필요합니다.");
+      else if (err.response?.status === 403) alert("관리자 권한이 없습니다.");
+      else alert("복구 실패");
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
   if (error) {
     return (
       <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -119,7 +149,7 @@ const AdminWithDrawHistory = () => {
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
           <h2 className="fw-bold m-0">회원탈퇴 이력</h2>
-          <div className="text-secondary small mt-1">검색 / 기간 조회 / 기간 삭제</div>
+          <div className="text-secondary small mt-1">검색 / 기간 조회 / 기간 삭제 / 복구</div>
         </div>
         <button className="btn btn-outline-secondary" onClick={() => navigate("/admin/dashboard")}>
           뒤로
@@ -197,18 +227,19 @@ const AdminWithDrawHistory = () => {
                   <th style={{ width: 140 }}>사유코드</th>
                   <th>사유</th>
                   <th style={{ width: 220 }}>시각</th>
+                  <th style={{ width: 160 }}>관리</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-secondary">
+                    <td colSpan={7} className="text-center py-5 text-secondary">
                       로딩중...
                     </td>
                   </tr>
                 ) : rows.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="text-center py-5 text-secondary">
+                    <td colSpan={7} className="text-center py-5 text-secondary">
                       데이터가 없습니다.
                     </td>
                   </tr>
@@ -219,8 +250,24 @@ const AdminWithDrawHistory = () => {
                       <td>{r.loginId}</td>
                       <td>{r.name}</td>
                       <td>{r.reasonCode || "-"}</td>
-                      <td className="text-truncate" style={{ maxWidth: 520 }}>{r.reasonText || "-"}</td>
+                      <td className="text-truncate" style={{ maxWidth: 520 }}>
+                        {r.reasonText || "-"}
+                      </td>
                       <td>{r.createdAt}</td>
+                      <td>
+                        <div className="d-flex gap-2">
+                          <button
+                            className="btn btn-sm btn-outline-success"
+                            onClick={() => restoreMember(r.memberId, r.loginId)}
+                            disabled={loading || restoringId === r.memberId}
+                          >
+                            {restoringId === r.memberId ? "복구중..." : "복구"}
+                          </button>
+
+                          {/* 말소(완전삭제)는 백엔드 API가 준비되면 그때 추가
+                              예: DELETE /api/admin/members/{memberId}/purge */}
+                        </div>
+                      </td>
                     </tr>
                   ))
                 )}

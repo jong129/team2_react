@@ -31,7 +31,7 @@ import AdminActivityHistory from './components/admin/AdminActivityHistory';
 import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
 import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
 import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
-
+import AdminCateGory from './components/admin/AdminCateGory';
 
 
 function App() {
@@ -79,6 +79,7 @@ function App() {
           <Route path="/admin/withdraw_history" element={<AdminWithDrawHistory />} />
           <Route path="/admin/change_pw_history" element={<AdminChangePwHistory />} />
           <Route path="/admin/user_update_history" element={<AdminUserUpdateHistory />} />
+          <Route path="/admin/categories" element={<AdminCateGory />} />
 
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />

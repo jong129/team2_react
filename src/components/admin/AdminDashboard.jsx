@@ -12,6 +12,7 @@ import {
   UserPen,
   ClipboardList,
   ArrowLeft,
+  Layers,
 } from "lucide-react";
 
 const AdminDashboard = () => {
@@ -121,7 +122,7 @@ const AdminDashboard = () => {
                   로그인 이력
                 </div>
                 <div className="text-secondary small mt-1">기간 조회</div>
-  </div>
+              </div>
             </div >
           </button >
         </div >
@@ -144,7 +145,6 @@ const AdminDashboard = () => {
                 <div className="fw-bold fs-4" style={{ color: "#059669" }}>
                   활동 로그
                 </div>
-                <div className="text-secondary small mt-1">활동 기록 조회 / 기간 삭제</div>
               </div>
             </div>
           </button>
@@ -168,7 +168,6 @@ const AdminDashboard = () => {
                 <div className="fw-bold fs-4" style={{ color: "#059669" }}>
                   회원정보 수정 이력
                 </div>
-                <div className="text-secondary small mt-1">변경 필드 / 이전값·신규값 조회</div>
               </div>
             </div>
           </button>
@@ -192,7 +191,6 @@ const AdminDashboard = () => {
                 <div className="fw-bold fs-4" style={{ color: "#059669" }}>
                   비밀번호 변경 이력
                 </div>
-                <div className="text-secondary small mt-1">변경 기록 조회 / 기간 삭제</div>
               </div>
             </div>
           </button>
@@ -216,13 +214,12 @@ const AdminDashboard = () => {
                 <div className="fw-bold fs-4" style={{ color: "#059669" }}>
                   회원탈퇴 이력
                 </div>
-                <div className="text-secondary small mt-1">탈퇴 사유 / 기간 조회</div>
               </div>
             </div>
           </button>
         </div>
 
-{/* ✅ 추가: 체크리스트 관리 */ }
+        {/* ✅ 추가: 체크리스트 관리 */}
         <div className="col-md-6">
           <button
             type="button"
@@ -292,6 +289,28 @@ const AdminDashboard = () => {
                   챗봇 통계
                 </div>
                 <div className="text-secondary small mt-1">사용량 · 피드백 · 차단 현황</div>
+              </div>
+            </div>
+          </button>
+        </div>
+        <div className="col-md-6">
+          <button
+            type="button"
+            className="w-100 text-start border-0 shadow-sm rounded-4 p-4"
+            style={{ backgroundColor: "#f8fafc" }}
+            onClick={() => navigate("/admin/categories")}
+          >
+            <div className="d-flex align-items-center gap-3">
+              <div
+                className="rounded-circle d-inline-flex align-items-center justify-content-center"
+                style={{ width: 52, height: 52, backgroundColor: "white" }}
+              >
+                <Layers color="#059669" />
+              </div>
+              <div>
+                <div className="fw-bold fs-4" style={{ color: "#059669" }}>
+                  카테고리
+                </div>
               </div>
             </div>
           </button>

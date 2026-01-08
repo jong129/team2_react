@@ -129,7 +129,6 @@ const AdminActivityHistory = () => {
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
           <h2 className="fw-bold m-0">활동 로그</h2>
-          <div className="text-secondary small mt-1">검색 / 기간 조회 / 기간 삭제</div>
         </div>
         <button className="btn btn-outline-secondary" onClick={() => navigate("/admin/dashboard")}>
           뒤로
