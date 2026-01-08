@@ -14,7 +14,7 @@ const AdminChecklistManage = () => {
           <div className="text-secondary small">체크리스트 템플릿 및 항목을 관리합니다</div>
         </div>
         <button className="btn btn-outline-secondary" onClick={() => navigate("/admin/dashboard")}>
-          ← 관리자 대시보드
+          뒤로
         </button>
       </div>
 

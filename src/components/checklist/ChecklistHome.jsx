@@ -164,8 +164,7 @@ export default function ChecklistHome() {
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
           <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={goHome} disabled={busy}>
-            <ArrowLeft size={16} className="me-1" />
-            홈
+            메인으로
           </button>
 
           <div className="d-flex align-items-center gap-2 fw-bold" style={{ color: "#059669" }}>
