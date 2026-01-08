@@ -228,8 +228,7 @@ export default function AdminChecklistTemplatesPage() {
               className="btn btn-sm btn-primary"
               onClick={() => navigate("/admin/checklists/templates/new")}
             >
-              <Plus size={16} className="me-1" />
-              템플릿 만들기
+              체크리스트 제작하기
             </button>
           </div>
         </div>

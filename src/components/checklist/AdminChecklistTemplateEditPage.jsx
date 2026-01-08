@@ -598,6 +598,7 @@ export default function AdminChecklistTemplateEditPage() {
               </div>
 
               <div className="col-12 d-flex align-items-center justify-content-between">
+                
                 <div className="form-check">
                   <input
                     className="form-check-input"
@@ -611,12 +612,12 @@ export default function AdminChecklistTemplateEditPage() {
                     disabled={!editable}
                   />
                   <label className="form-check-label small" htmlFor="onlyActive">
-                    활성(Y)만
+                    추가 가능한 항목만 보기
                   </label>
                 </div>
 
                 <button
-                  className="btn btn-sm btn-outline-secondary"
+                  className="btn btn-sm btn-outline-secondary ms-auto"
                   onClick={() => {
                     setPoolPhase("");
                     setPoolPostGroupCode("");

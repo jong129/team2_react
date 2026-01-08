@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import { Users, ListChecks, MessageSquareText, BarChart3, ClipboardList } from "lucide-react";
 import {
   Users,
   ListChecks,
@@ -11,6 +10,8 @@ import {
   UserX,
   KeyRound,
   UserPen,
+  ClipboardList,
+  ArrowLeft,
 } from "lucide-react";
 
 const AdminDashboard = () => {
@@ -51,9 +52,23 @@ const AdminDashboard = () => {
   return (
     <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
-        <div>
-          <h2 className="fw-bold m-0">관리자 대시보드</h2>
-          <div className="text-secondary small mt-1">{message || "ADMIN DASHBOARD OK"}</div>
+        <div className="d-flex align-items-center gap-3">
+          {/* 🔙 뒤로가기 버튼 */}
+          <button
+            type="button"
+            className="btn btn-light rounded-circle d-flex align-items-center justify-content-center"
+            style={{ width: 40, height: 40 }}
+            onClick={() => navigate("/")}
+          >
+            <ArrowLeft size={18} />
+          </button>
+
+          <div>
+            <h2 className="fw-bold m-0">관리자 대시보드</h2>
+            <div className="text-secondary small mt-1">
+              {message || "ADMIN DASHBOARD OK"}
+            </div>
+          </div>
         </div>
 
         <button className="btn btn-outline-secondary" onClick={goBack}>
@@ -106,10 +121,10 @@ const AdminDashboard = () => {
                   로그인 이력
                 </div>
                 <div className="text-secondary small mt-1">기간 조회</div>
-              </div>
-            </div>
-          </button>
-        </div>
+  </div>
+            </div >
+          </button >
+        </div >
 
         <div className="col-md-6">
           <button
@@ -207,7 +222,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        {/* ✅ 추가: 체크리스트 관리 */}
+{/* ✅ 추가: 체크리스트 관리 */ }
         <div className="col-md-6">
           <button
             type="button"
@@ -281,8 +296,8 @@ const AdminDashboard = () => {
             </div>
           </button>
         </div>
-      </div>
-    </div>
+      </div >
+    </div >
   );
 };
 
