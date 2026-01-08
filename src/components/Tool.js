@@ -36,6 +36,11 @@ function enter_chk(e, nextTag){
   }
 }
 
+const getSseBaseUrl = () => {
+  // axiosInstance의 baseURL과 동일하게 맞추기
+  return import.meta.env.PROD ? "" : `http://${getIP()}:9093`;
+};
+
 const axiosInstance = axios.create({
     // 개발 환경과 배포 환경에 따라 baseURL 설정
     // Vite 환경 변수 사용
@@ -50,5 +55,5 @@ const axiosInstance = axios.create({
 })
 
 
-export {getIP, getCopyright, getNowDate, enter_chk, axiosInstance}; 
+export {getIP, getCopyright, getNowDate, enter_chk, getSseBaseUrl, axiosInstance}; 
 // import {getIP, getCopyright, getNowDate, enter_chk} from 'Tool';

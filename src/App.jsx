@@ -9,7 +9,6 @@ import PreHistoryPage from "./components/checklist/PreHistoryPage";
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
-import RagChat from './components/aichatbot/RagChat';
 import MemberChatPage from "./components/aichatbot/MemberChatPage";
 import AdminChatPage from './components/aichatbot/AdminChatPage';
 import ChatbotStats from './components/aichatbot/ChatbotStats';
@@ -56,7 +55,6 @@ function App() {
           <Route path="/admin/login_history" element={<AdminLoginHistory />} />
           <Route path="/admin/userlist" element={<AdminUserList />} />
           {/* ✅ RAG 전용 챗 페이지 */}
-          <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/chatbotstats" element={<ChatbotStats />} />

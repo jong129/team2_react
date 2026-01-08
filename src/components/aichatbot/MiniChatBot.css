@@ -58,3 +58,90 @@
   background:rgba(220,38,38,0.08);
   color:#7f1d1d;
 }
+
+/* =========================
+   Follow-up Questions (chips)
+   ========================= */
+
+.fu-wrap{
+  margin: 8px 0 12px;
+  max-width: 85%;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.fu-chip{
+  border: 1px solid #e5e7eb;
+  background: #ffffff;
+  color: #0f172a;
+  font-size: 12.5px;
+  line-height: 1.25;
+  padding: 8px 10px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease, border-color .12s ease;
+}
+
+.fu-chip:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 8px 18px rgba(0,0,0,0.10);
+  border-color: rgba(5,150,105,0.40);
+  background: rgba(5,150,105,0.06);
+}
+
+.fu-chip:active{
+  transform: translateY(0px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.fu-chip:disabled{
+  opacity: .6;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+}
+
+/* 왼쪽에 작은 점(아이콘 느낌) */
+.fu-dot{
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(5,150,105,0.85);
+  flex: 0 0 auto;
+}
+
+/* 칩 안 텍스트는 두 줄까지, 길면 말줄임 */
+.fu-text{
+  display: -webkit-box;
+  -webkit-line-clamp: 2;        /* 최대 2줄 */
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: normal;
+  text-align: left;
+}
+
+/* 추천 질문 섹션 라벨 (선택) */
+.fu-label{
+  width: 100%;
+  font-size: 11.5px;
+  color: #64748b;
+  margin-bottom: 2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.fu-label .fu-badge{
+  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: rgba(5,150,105,0.10);
+  color: #065f46;
+  border: 1px solid rgba(5,150,105,0.25);
+}

@@ -1,12 +1,33 @@
 // src/components/aichatbot/MiniChatBot.jsx
 import React, { useEffect, useRef, useState } from "react";
-import { MessageSquareText, X, ArrowRight, MessageCircle, Plus, Trash2, ThumbsUp, ThumbsDown, RefreshCcw, Copy } from "lucide-react";
-import { axiosInstance } from "../Tool";
+import {
+  MessageSquareText,
+  X,
+  ArrowRight,
+  MessageCircle,
+  Plus,
+  Trash2,
+  ThumbsUp,
+  ThumbsDown,
+  RefreshCcw,
+  Copy,
+} from "lucide-react";
+import { axiosInstance, getSseBaseUrl } from "../Tool";
 import "./MiniChatBot.css";
 
 const DEFAULT_MESSAGES = [
-  { role: "ai", content: "안녕하세요! 무엇을 도와드릴까요?" },
-  { role: "ai", content: "문서분석/체크리스트 결과를 기반으로 이어서 질문해도 돼요." },
+  {
+    role: "ai",
+    content: "안녕하세요! 부동산 계약과 관련된 궁금증을 도와드리는 AI 비서입니다.",
+    followUpQuestions: [
+      "내 상황을 설명하면 어떤 점을 조심해야 하는지 알려줄 수 있어?",
+      "전세계약할 때 사람들이 가장 많이 놓치는 위험한 포인트는 뭐야?",
+      "안전하게 계약하려면 어떤 정보나 문서를 준비하면 좋아?",
+    ],
+    showExtras: true,
+    isStreaming: false,
+    chatId: null,
+  },
 ];
 
 const normalizeRole = (role) => {
@@ -23,50 +44,82 @@ const normalizeMessages = (serverMessages) => {
     role: normalizeRole(m.role),
     content: m.content ?? "",
     references: m.references ?? [],
-
-    // ✅ 서버가 내려주는 chatId / 집계 / 내 피드백까지 받기
+    followUpQuestions: Array.isArray(m.followUpQuestions) ? m.followUpQuestions : [],
     chatId: m.chatId ?? m.id ?? m.chat_id ?? null,
     likeCount: m.likeCount ?? 0,
     dislikeCount: m.dislikeCount ?? 0,
     myFeedback: m.myFeedback ?? null,
+    isStreaming: false,
+    showExtras: true,
   }));
 };
 
-
 // grouped DTO -> flat sessions (최근 목록용)
 const flattenGroupedSessions = (data) => {
-  // AiBotPage에서 쓰는 DTO와 동일 가정: [{date, sessions:[{sessionId,title,...}]}]
   if (!Array.isArray(data)) return [];
   const out = [];
   for (const g of data) {
-    const sessions = Array.isArray(g.sessions) ? g.sessions : (Array.isArray(g.items) ? g.items : []);
+    const sessions = Array.isArray(g.sessions)
+      ? g.sessions
+      : Array.isArray(g.items)
+        ? g.items
+        : [];
     for (const s of sessions) out.push(s);
   }
   return out;
 };
 
-
 export default function MiniChatbot({ isLoggedIn }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
 
-  // ✅ 현재 세션
   const [sessionId, setSessionId] = useState(null);
 
-  // ✅ 최근 세션 목록 (드롭다운)
-  const [recentSessions, setRecentSessions] = useState([]); // [{sessionId,title,lastMessageAt,...}]
+  const [recentSessions, setRecentSessions] = useState([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
 
-  // ✅ 채팅 상태
   const [messages, setMessages] = useState(DEFAULT_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
 
   const bottomRef = useRef(null);
 
+  // ✅ SSE stream ref
+  const streamRef = useRef(null);
+
+  // ✅ 타이핑 큐
+  const typingQueueRef = useRef("");
+  const typingRunningRef = useRef(false);
+
+  // ✅ done이 먼저 와도 "타이핑이 끝난 뒤" extras를 열기 위한 플래그
+  const pendingFinalizeRef = useRef(null); // { aiTempId: string } | null
+
+  const makeTempId = () => {
+    if (crypto?.randomUUID) return crypto.randomUUID();
+    return `ai-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  };
+
+  const closeStream = () => {
+    if (streamRef.current) {
+      try {
+        streamRef.current.close();
+      } catch (err) {
+        console.warn("SSE close failed (ignored):", err);
+      }
+      streamRef.current = null;
+    }
+    typingQueueRef.current = "";
+    typingRunningRef.current = false;
+    pendingFinalizeRef.current = null;
+  };
+
   useEffect(() => {
     if (!isChatOpen) return;
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading, isChatOpen]);
+
+  useEffect(() => {
+    return () => closeStream();
+  }, []);
 
   // -----------------------------
   // API helpers
@@ -74,10 +127,8 @@ export default function MiniChatbot({ isLoggedIn }) {
   const loadRecentSessions = async () => {
     setLoadingSessions(true);
     try {
-      // ✅ 이미 AiBotPage가 쓰는 endpoint 재사용
       const res = await axiosInstance.get("/api/chat/sessions/grouped");
       const flat = flattenGroupedSessions(res.data);
-      // 너무 많으면 UX 안 좋아서 상위 15개만
       setRecentSessions(flat.slice(0, 15));
     } catch (e) {
       console.warn("최근 세션 목록 로드 실패(미니챗):", e);
@@ -96,20 +147,35 @@ export default function MiniChatbot({ isLoggedIn }) {
   };
 
   const ensureLatestSession = async () => {
-    // ✅ 최근 세션 id 가져오기(없으면 생성) - 기존 로직 유지
     const sres = await axiosInstance.post("/api/chat/sessions/latest");
     const sid = sres.data.sessionId;
     setSessionId(sid);
     return sid;
   };
 
-  // ✅ "진짜 새 세션" 생성 시도
-  // - 서버에 생성 API가 있으면 그걸 쓰고
-  // - 없으면(404 등) 화면만 새 대화처럼 초기화(fallback)
+  // ✅ 세션 제목을 recentSessions에 즉시 반영(새로고침 없이 드롭다운 갱신)
+  const applySessionTitle = (sid, newTitle) => {
+    if (!sid || !newTitle) return;
+
+    const title = String(newTitle).trim();
+    if (!title) return;
+
+    setRecentSessions((prev) => {
+      const next = prev.map((s) => {
+        const id = s.sessionId ?? s.id;
+        return String(id) === String(sid) ? { ...s, title } : s;
+      });
+
+      // 목록에 없으면 맨 위에 추가(방금 만든 세션이 보이게)
+      const exists = next.some((s) => String(s.sessionId ?? s.id) === String(sid));
+      if (!exists) return [{ sessionId: sid, title }, ...next].slice(0, 15);
+
+      return next;
+    });
+  };
+
   const createNewSession = async () => {
     try {
-      // 1) 가장 일반적인 생성 엔드포인트들 “순차 시도”
-      //    (백엔드 구현명이 다를 수 있어 현실적으로 이렇게 해두면 편합니다)
       const candidates = [
         { method: "post", url: "/api/chat/sessions" },
         { method: "post", url: "/api/chat/sessions/new" },
@@ -121,6 +187,7 @@ export default function MiniChatbot({ isLoggedIn }) {
           const res = await axiosInstance[c.method](c.url, {});
           const sid = res?.data?.sessionId ?? res?.data?.id;
           if (sid != null) {
+            closeStream();
             setSessionId(sid);
             setMessages(DEFAULT_MESSAGES);
             await loadRecentSessions();
@@ -128,14 +195,15 @@ export default function MiniChatbot({ isLoggedIn }) {
           }
         } catch (err) {
           console.warn(`[세션 생성 실패] ${c.method.toUpperCase()} ${c.url}`, err);
-          // 다음 후보로 계속
         }
       }
 
-      // 2) 후보가 전부 실패하면 fallback: 화면만 새 대화처럼
+      closeStream();
       setSessionId(null);
       setMessages(DEFAULT_MESSAGES);
-      alert("⚠️ 서버에 '새 세션 생성 API'가 없어 화면만 새 대화로 초기화했습니다.\n(백엔드에 세션 생성 엔드포인트 추가 시 완전 지원 가능)");
+      alert(
+        "⚠️ 서버에 '새 세션 생성 API'가 없어 화면만 새 대화로 초기화했습니다.\n(백엔드에 세션 생성 엔드포인트 추가 시 완전 지원 가능)"
+      );
       return null;
     } catch (e) {
       console.error("새 세션 생성 실패:", e);
@@ -146,7 +214,6 @@ export default function MiniChatbot({ isLoggedIn }) {
 
   const deleteCurrentSession = async () => {
     if (!sessionId) {
-      // fallback 상태(세션 없음)면 그냥 초기화
       setMessages(DEFAULT_MESSAGES);
       return;
     }
@@ -155,10 +222,9 @@ export default function MiniChatbot({ isLoggedIn }) {
     if (!ok) return;
 
     try {
-      // ✅ AiBotPage에서 이미 쓰는 endpoint
+      closeStream();
       await axiosInstance.delete(`/api/chat/sessions/${sessionId}`);
 
-      // 삭제 후: 최신 세션으로 이동(없으면 생성)
       const sid = await ensureLatestSession();
       await loadMessagesBySession(sid);
       await loadRecentSessions();
@@ -170,14 +236,12 @@ export default function MiniChatbot({ isLoggedIn }) {
 
   const copyText = async (text) => {
     try {
-      // 1) 최신 API 사용 가능 + 보안 컨텍스트(https/localhost)일 때
       if (navigator?.clipboard?.writeText && window.isSecureContext) {
         await navigator.clipboard.writeText(text);
         alert("복사되었습니다!");
         return;
       }
 
-      // 2) fallback: execCommand 방식 (구형/권한제한/HTTP에서도 동작하는 경우 많음)
       const ta = document.createElement("textarea");
       ta.value = text;
       ta.setAttribute("readonly", "");
@@ -198,26 +262,62 @@ export default function MiniChatbot({ isLoggedIn }) {
     }
   };
 
-
   const sendFeedback = async (chatId, liked) => {
     const res = await axiosInstance.post(`/api/chat/messages/${chatId}/feedback`, { liked });
-
     const { likeCount, dislikeCount, myFeedback } = res.data;
 
-    setMessages(prev =>
-      prev.map(m =>
-        m.chatId === chatId
-          ? { ...m, likeCount, dislikeCount, myFeedback }
-          : m
-      )
+    setMessages((prev) =>
+      prev.map((m) => (m.chatId === chatId ? { ...m, likeCount, dislikeCount, myFeedback } : m))
     );
   };
 
+  // -----------------------------
+  // 스트리밍(타이핑) 유틸
+  // -----------------------------
+  const finalizeIfReady = (aiTempId) => {
+    if (typingQueueRef.current.length > 0 || typingRunningRef.current) return;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m._tempId === aiTempId ? { ...m, isStreaming: false, showExtras: true } : m
+      )
+    );
+
+    pendingFinalizeRef.current = null;
+    setLoading(false);
+  };
+
+  const pumpTyping = async (aiTempId) => {
+    if (typingRunningRef.current) return;
+    typingRunningRef.current = true;
+
+    try {
+      while (typingQueueRef.current.length > 0) {
+        const ch = typingQueueRef.current[0];
+        typingQueueRef.current = typingQueueRef.current.slice(1);
+
+        setMessages((prev) =>
+          prev.map((m) => (m._tempId === aiTempId ? { ...m, content: (m.content ?? "") + ch } : m))
+        );
+
+        await new Promise((r) => setTimeout(r, 12));
+      }
+    } finally {
+      typingRunningRef.current = false;
+
+      if (pendingFinalizeRef.current?.aiTempId === aiTempId) {
+        finalizeIfReady(aiTempId);
+      }
+    }
+  };
+
+  // -----------------------------
+  // regenerate (기존 /api/rag/ask 유지)
+  // -----------------------------
   const regenerate = async () => {
     if (loading) return;
 
-    // 마지막 user 질문 찾기
-    const lastUser = [...messages].reverse().find(m => m.role === "user");
+    const lastUser = [...messages].reverse().find((m) => m.role === "user");
     if (!lastUser) return;
 
     setLoading(true);
@@ -225,19 +325,25 @@ export default function MiniChatbot({ isLoggedIn }) {
       const res = await axiosInstance.post("/api/rag/ask", {
         sessionId,
         question: lastUser.content,
-        regenerate: true, // 서버에서 temperature 올리는 용도로(선택)
+        regenerate: true,
       });
 
-      setMessages(prev => [
+      // ✅ 세션 제목 즉시 반영(새로고침 없이)
+      applySessionTitle(sessionId, res.data.sessionTitle);
+
+      setMessages((prev) => [
         ...prev,
         {
           role: "ai",
           content: res.data.answer ?? "(답변이 비어있습니다)",
-          chatId: res.data.assistantChatId,   // ✅ 중요
+          chatId: res.data.assistantChatId,
           likeCount: 0,
           dislikeCount: 0,
           myFeedback: null,
           references: res.data.references ?? [],
+          followUpQuestions: res.data.followUpQuestions ?? [],
+          isStreaming: false,
+          showExtras: true,
         },
       ]);
     } finally {
@@ -251,33 +357,20 @@ export default function MiniChatbot({ isLoggedIn }) {
   const openChatAndLoad = async () => {
     try {
       await loadRecentSessions();
-
       const sid = await ensureLatestSession();
       await loadMessagesBySession(sid);
     } catch (err) {
       console.error("세션/기록 로드 실패:", err);
       setMessages([
-        { role: "ai", content: "⚠️ 이전 대화를 불러오지 못했습니다. 새로 대화를 시작할 수 있어요." },
+        {
+          role: "ai",
+          content: "⚠️ 이전 대화를 불러오지 못했습니다. 새로 대화를 시작할 수 있어요.",
+          showExtras: true,
+          isStreaming: false,
+        },
       ]);
     }
   };
-
-  const openFromEvent = async () => {
-    if (!isLoggedIn) {
-      alert("AI 비서 기능은 로그인이 필요합니다.");
-      return;
-    }
-    setIsChatOpen(true);
-    await openChatAndLoad();
-  };
-
-  // ✅ Home(또는 어디서든) 'open-mini-chat' 이벤트가 오면 챗봇 열기
-  useEffect(() => {
-    const handler = () => openFromEvent();
-    window.addEventListener("open-mini-chat", handler);
-    return () => window.removeEventListener("open-mini-chat", handler);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoggedIn]);
 
   const toggleChat = async () => {
     if (!isLoggedIn) {
@@ -286,6 +379,8 @@ export default function MiniChatbot({ isLoggedIn }) {
     }
 
     if (isChatOpen) {
+      closeStream();
+      setLoading(false);
       setIsChatOpen(false);
       return;
     }
@@ -294,63 +389,185 @@ export default function MiniChatbot({ isLoggedIn }) {
     await openChatAndLoad();
   };
 
-  // -----------------------------
-  // chat
-  // -----------------------------
-  const askAi = async () => {
-    if (!input.trim() || loading) return;
+  // ✅ Home 'open-mini-chat' 이벤트
+  useEffect(() => {
+    const handler = async (e) => {
+      if (!isLoggedIn) {
+        alert("AI 비서 기능은 로그인이 필요합니다.");
+        return;
+      }
 
-    // ✅ sessionId가 없으면(=fallback 새대화) 먼저 최신 세션 확보 후 진행
+      const detail = e?.detail || {};
+      setIsChatOpen(true);
+
+      await openChatAndLoad();
+
+      if (detail.question) {
+        if (detail.autoSend) {
+          await submitQuestion(detail.question);
+        } else {
+          setInput(detail.question);
+        }
+      }
+    };
+
+    window.addEventListener("open-mini-chat", handler);
+    return () => window.removeEventListener("open-mini-chat", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn]);
+
+  // -----------------------------
+  // chat (SSE)
+  // -----------------------------
+  const submitQuestion = async (text, { appendUser = true } = {}) => {
+    const q = String(text ?? "").trim();
+    if (!q || loading) return;
+
     let sid = sessionId;
     if (!sid) {
-      sid = await ensureLatestSession();
-      await loadRecentSessions();
+      const sres = await axiosInstance.post("/api/chat/sessions/latest");
+      sid = sres.data.sessionId;
+      setSessionId(sid);
     }
 
-    const question = input.trim();
-    setMessages((prev) => [...prev, { role: "user", content: question }]);
-    setInput("");
+    closeStream();
+
+    if (appendUser) {
+      setMessages((prev) => [
+        ...prev,
+        { role: "user", content: q, showExtras: false, isStreaming: false },
+      ]);
+    }
+
+    const aiTempId = makeTempId();
+
+    setMessages((prev) => [
+      ...prev,
+      {
+        role: "ai",
+        content: "",
+        references: [],
+        followUpQuestions: [],
+        chatId: null,
+        likeCount: 0,
+        dislikeCount: 0,
+        myFeedback: null,
+        _tempId: aiTempId,
+        isStreaming: true,
+        showExtras: false,
+      },
+    ]);
+
     setLoading(true);
 
     try {
-      const res = await axiosInstance.post("/api/rag/ask", {
+      const startRes = await axiosInstance.post("/api/rag/ask/start", {
         sessionId: sid,
-        question,
+        question: q,
+      });
+      const jobId = startRes.data.jobId;
+
+      const es = new EventSource(
+        `${getSseBaseUrl()}/api/rag/ask/stream?jobId=${encodeURIComponent(jobId)}`,
+        { withCredentials: true }
+      );
+      streamRef.current = es;
+
+      es.onmessage = (e) => {
+        typingQueueRef.current += e.data ?? "";
+        pumpTyping(aiTempId);
+      };
+
+      // ✅ meta는 저장만 (보이게는 하지 않음)
+      es.addEventListener("meta", (e) => {
+        let meta = null;
+        try {
+          meta = JSON.parse(e.data);
+        } catch {
+          meta = null;
+        }
+        if (!meta) return;
+
+        // ✅ 세션 제목 실시간 반영(새로고침 없이)
+        applySessionTitle(sid, meta.sessionTitle);
+
+        setMessages((prev) =>
+          prev.map((m) => {
+            if (m._tempId !== aiTempId) return m;
+            return {
+              ...m,
+              references: meta.references ?? m.references ?? [],
+              followUpQuestions: meta.followUpQuestions ?? m.followUpQuestions ?? [],
+              chatId: meta.assistantChatId ?? meta.chatId ?? m.chatId ?? null,
+            };
+          })
+        );
       });
 
+      es.addEventListener("done", () => {
+        es.close();
+        if (streamRef.current === es) streamRef.current = null;
+
+        pendingFinalizeRef.current = { aiTempId };
+        finalizeIfReady(aiTempId);
+      });
+
+      es.addEventListener("error", () => {
+        es.close();
+        if (streamRef.current === es) streamRef.current = null;
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m._tempId === aiTempId
+              ? {
+                ...m,
+                isStreaming: false,
+                showExtras: true,
+                content: (m.content ?? "") + "\n\n⚠️ 스트리밍 중 오류",
+              }
+              : m
+          )
+        );
+        setLoading(false);
+      });
+    } catch (err) {
+      console.error(err);
       setMessages((prev) => [
         ...prev,
         {
           role: "ai",
-          content: res.data.answer ?? "(답변이 비어있습니다)",
-          references: res.data.references ?? [],
-          chatId: res.data.assistantChatId, // ✅ 추가
-          likeCount: 0,
-          dislikeCount: 0,
-          myFeedback: null,
+          content: "⚠️ 답변 생성 중 오류가 발생했습니다.",
+          showExtras: true,
+          isStreaming: false,
         },
       ]);
-
-
-      // 메시지 쌓였으니 최근 세션 목록도 갱신(너무 자주 싫으면 throttle 가능)
-      await loadRecentSessions();
-    } catch (err) {
-      console.error("AI 요청 실패:", err);
-      setMessages((prev) => [...prev, { role: "ai", content: "⚠️ 답변 생성 중 오류가 발생했습니다." }]);
-    } finally {
       setLoading(false);
     }
+  };
+
+  const isThinking = messages.some(
+    (m) => m.role === "ai" && m.isStreaming && (!m.content || m.content.length === 0)
+  );
+
+  const askAi = async () => {
+    const q = input.trim();
+    if (!q || loading) return;
+    setInput("");
+    await submitQuestion(q);
   };
 
   const changeSession = async (sid) => {
     if (!sid) return;
     try {
+      closeStream();
+      setLoading(false);
+
       setSessionId(sid);
-      setMessages([{ role: "ai", content: "불러오는 중..." }]);
+      setMessages([{ role: "ai", content: "불러오는 중...", showExtras: false, isStreaming: false }]);
       await loadMessagesBySession(sid);
     } catch (e) {
       console.error("세션 전환 실패:", e);
-      setMessages([{ role: "ai", content: "⚠️ 대화를 불러오지 못했습니다." }]);
+      setMessages([{ role: "ai", content: "⚠️ 대화를 불러오지 못했습니다.", showExtras: true, isStreaming: false }]);
     }
   };
 
@@ -392,7 +609,6 @@ export default function MiniChatbot({ isLoggedIn }) {
         >
           {/* header */}
           <div className="p-3 text-white" style={{ backgroundColor: "#059669" }}>
-            {/* 1행: 타이틀 + 닫기 */}
             <div className="d-flex align-items-center justify-content-between">
               <div className="d-flex align-items-center" style={{ minWidth: 0 }}>
                 <MessageSquareText size={20} className="me-2" />
@@ -402,7 +618,7 @@ export default function MiniChatbot({ isLoggedIn }) {
                     whiteSpace: "nowrap",
                     overflow: "hidden",
                     textOverflow: "ellipsis",
-                    maxWidth: "220px", // ✅ 폭 제한 (겹침 방지)
+                    maxWidth: "220px",
                   }}
                   title="홈스캐너 AI 비서"
                 >
@@ -411,7 +627,11 @@ export default function MiniChatbot({ isLoggedIn }) {
               </div>
 
               <button
-                onClick={() => setIsChatOpen(false)}
+                onClick={() => {
+                  closeStream();
+                  setLoading(false);
+                  setIsChatOpen(false);
+                }}
                 className="btn btn-link text-white p-0"
                 title="닫기"
                 style={{ flex: "0 0 auto" }}
@@ -420,13 +640,12 @@ export default function MiniChatbot({ isLoggedIn }) {
               </button>
             </div>
 
-            {/* 2행: 세션 드롭다운 + 버튼들 */}
             <div className="d-flex align-items-center gap-2 mt-2">
               <select
                 className="form-select form-select-sm"
                 style={{ flex: 1, borderRadius: 12, minWidth: 0 }}
                 value={sessionId ?? ""}
-                onChange={(e) => changeSession(e.target.value)}
+                onChange={(e) => changeSession(Number(e.target.value))}
                 title="최근 대화로 이동"
                 disabled={loadingSessions}
               >
@@ -444,18 +663,16 @@ export default function MiniChatbot({ isLoggedIn }) {
                 })}
               </select>
 
-              {/* 새 대화 */}
               <button
                 className="btn btn-sm btn-light"
                 style={{ borderRadius: 12, flex: "0 0 auto" }}
                 onClick={createNewSession}
-                title="새 대화(새 세션)"
+                title="새 대화"
                 disabled={loading}
               >
                 <Plus size={16} />
               </button>
 
-              {/* 삭제 */}
               <button
                 className="btn btn-sm btn-light"
                 style={{ borderRadius: 12, flex: "0 0 auto" }}
@@ -474,22 +691,34 @@ export default function MiniChatbot({ isLoggedIn }) {
               const isUser = msg.role === "user";
               const isAi = msg.role === "ai";
 
+              // 빈 스트리밍 AI 말풍선 숨기기
+              if (isAi && msg.isStreaming && (!msg.content || msg.content.length === 0)) {
+                return null;
+              }
+
               return (
-                <div key={idx} style={{ display: "flex", flexDirection: "column", alignItems: isUser ? "flex-end" : "flex-start" }}>
+                <div
+                  key={idx}
+                  style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: isUser ? "flex-end" : "flex-start",
+                  }}
+                >
                   <div
                     className="p-3 rounded-4 mb-1 shadow-sm"
                     style={{
                       maxWidth: "85%",
                       backgroundColor: isUser ? "#059669" : "#ffffff",
                       color: isUser ? "white" : "black",
-                      whiteSpace: "pre-wrap"
+                      whiteSpace: "pre-wrap",
                     }}
                   >
                     {msg.content}
                   </div>
 
-                  {/* ✅ AI 답변 액션 */}
-                  {isAi && msg.chatId && (
+                  {/* ✅ AI 답변 액션: 스트리밍 끝난 뒤에만 */}
+                  {isAi && msg.showExtras && !msg.isStreaming && msg.chatId && (
                     <div className="msg-actions" style={{ maxWidth: "85%" }}>
                       <button
                         type="button"
@@ -534,13 +763,38 @@ export default function MiniChatbot({ isLoggedIn }) {
                     </div>
                   )}
 
+                  {/* ✅ 추천 질문: 스트리밍 끝난 뒤에만 */}
+                  {isAi &&
+                    msg.showExtras &&
+                    !msg.isStreaming &&
+                    Array.isArray(msg.followUpQuestions) &&
+                    msg.followUpQuestions.length > 0 && (
+                      <div className="fu-wrap">
+                        <div className="fu-label">
+                          <span className="fu-badge">추천 질문</span>
+                        </div>
 
+                        {msg.followUpQuestions.slice(0, 3).map((q, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            className="fu-chip"
+                            onClick={() => submitQuestion(q)}
+                            disabled={loading}
+                            title="추천 질문으로 이어서 묻기"
+                          >
+                            <span className="fu-dot" />
+                            <span className="fu-text">{q}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                 </div>
               );
             })}
 
-
-            {loading && (
+            {/* ✅ “생각 중”은 ‘스트리밍 중 + 아직 글자 0개’일 때만 */}
+            {isThinking && (
               <div className="p-3 rounded-4 bg-white shadow-sm">
                 AI가 답변을 생성 중입니다...
               </div>
