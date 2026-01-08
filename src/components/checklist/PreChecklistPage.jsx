@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { ClipboardCheck, ArrowLeft, CheckCircle2 } from "lucide-react";
+import { ClipboardCheck, ArrowLeft } from "lucide-react";
 import { axiosInstance } from "../Tool";
 
 export default function PreChecklistPage() {
@@ -12,7 +12,6 @@ export default function PreChecklistPage() {
   const [summary, setSummary] = useState(null);
 
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const [checks, setChecks] = useState({});
@@ -20,6 +19,9 @@ export default function PreChecklistPage() {
   // ✅ 저장 완료 토스트
   const [savedNotice, setSavedNotice] = useState(false);
   const saveTimerRef = useRef(null);
+
+  // ✅ 전역 saving 대신: 클릭한 행만 잠깐 잠그기(번쩍임 방지)
+  const [busyItemId, setBusyItemId] = useState(null);
 
   // ✅ 로그인 사용자
   const memberId = Number(localStorage.getItem("loginMemberId"));
@@ -100,7 +102,7 @@ export default function PreChecklistPage() {
         // 2) 세션: state로 받은 sessionId가 있으면 그걸 사용, 없으면 start 호출
         let sess;
         if (incomingSessionId) {
-          sess = { sessionId: incomingSessionId }; // 최소한 sessionId만 있어도 됨
+          sess = { sessionId: incomingSessionId };
         } else {
           sess = await startSession(memberId);
         }
@@ -110,7 +112,7 @@ export default function PreChecklistPage() {
         const sum = await loadSummary(sess.sessionId);
         setSummary(sum);
 
-        // 4) 체크맵: 서버 statuses로 동기화 (이어하기 해결 핵심)
+        // 4) 체크맵: 서버 statuses로 동기화
         await hydrateChecks(tpl, sess.sessionId);
       } catch (e) {
         const msg =
@@ -123,25 +125,81 @@ export default function PreChecklistPage() {
         setLoading(false);
       }
     })();
-    // ✅ incomingSessionId가 바뀌면 다시 로드되도록 포함
   }, [navigate, memberId, incomingSessionId]);
 
   const progress = useMemo(() => {
     const total = summary?.totalCount ?? data?.items?.length ?? 0;
-    const done = summary?.doneCount ?? Object.values(checks).filter((v) => v === "DONE").length;
+    const done =
+      summary?.doneCount ??
+      Object.values(checks).filter((v) => v === "DONE").length;
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
     return { done, total, pct };
   }, [data, checks, summary]);
 
+  // ✅ 영역별 진행 요약
+  const areaStats = useMemo(() => {
+    const items = data?.items || [];
+    const map = new Map();
+
+    const normArea = (a) => (a && String(a).trim() ? a : "기타");
+
+    for (const it of items) {
+      const area = normArea(it.checkArea);
+      if (!map.has(area)) {
+        map.set(area, {
+          area,
+          total: 0,
+          done: 0,
+          requiredTotal: 0,
+          requiredNotDone: 0,
+          requiredNotDoneItems: [],
+        });
+      }
+      const stat = map.get(area);
+
+      stat.total += 1;
+
+      const st = checks?.[it.itemId] || "NOT_DONE";
+      if (st === "DONE") stat.done += 1;
+
+      const isReq = it.requiredYn === "Y" || it.required === true;
+      if (isReq) {
+        stat.requiredTotal += 1;
+        if (st !== "DONE") {
+          stat.requiredNotDone += 1;
+          stat.requiredNotDoneItems.push({ itemId: it.itemId, title: it.title });
+        }
+      }
+    }
+
+    const order = ["등기부 권리 점검", "선순위 관계 점검", "시세·금액 점검", "건물·법적 사항 점검", "기타"];
+    const arr = Array.from(map.values());
+    arr.sort(
+      (a, b) =>
+        (order.indexOf(a.area) - order.indexOf(b.area)) ||
+        a.area.localeCompare(b.area)
+    );
+
+    arr.forEach((x) => {
+      x.pct = x.total === 0 ? 0 : Math.round((x.done / x.total) * 100);
+    });
+
+    return arr;
+  }, [data, checks]);
+
+  // ✅ 번쩍임 방지: 클릭한 행만 잠깐 잠금
   const applyStatus = async (itemId, nextStatus) => {
     if (!session?.sessionId) {
       setError("세션이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
       return;
     }
 
+    // 이미 저장중인 행이 있으면 중복 클릭 방지(선택)
+    if (busyItemId && busyItemId !== itemId) return;
+
     try {
-      setSaving(true);
       setError("");
+      setBusyItemId(itemId);
 
       // UI 선반영
       setChecks((prev) => ({ ...prev, [itemId]: nextStatus }));
@@ -149,7 +207,7 @@ export default function PreChecklistPage() {
       // 서버 저장
       await saveCheckStatus(session.sessionId, itemId, nextStatus);
 
-      // 요약 갱신
+      // 요약 갱신(전역 disable 없이 갱신만)
       const sum = await loadSummary(session.sessionId);
       setSummary(sum);
     } catch (e) {
@@ -160,12 +218,9 @@ export default function PreChecklistPage() {
         "저장 중 오류";
       setError(msg);
     } finally {
-      setSaving(false);
+      setBusyItemId(null);
     }
   };
-
-  const setDone = (itemId) => applyStatus(itemId, "DONE");
-  const setNotDone = (itemId) => applyStatus(itemId, "NOT_DONE");
 
   const resetAll = async () => {
     if (!session?.sessionId) {
@@ -174,16 +229,14 @@ export default function PreChecklistPage() {
     }
 
     try {
-      setSaving(true);
       setError("");
+      setBusyItemId("__RESET__"); // 전체 작업 중 표시용
 
       await resetSession(session.sessionId);
 
-      // 요약 다시 로드
       const sum = await loadSummary(session.sessionId);
       setSummary(sum);
 
-      // ✅ reset 후에도 statuses로 다시 동기화(서버가 진짜 소스)
       await hydrateChecks(data, session.sessionId);
     } catch (e) {
       const msg =
@@ -193,7 +246,7 @@ export default function PreChecklistPage() {
         "초기화 중 오류";
       setError(msg);
     } finally {
-      setSaving(false);
+      setBusyItemId(null);
     }
   };
 
@@ -212,7 +265,9 @@ export default function PreChecklistPage() {
     return (
       <div className="bg-white" style={{ fontFamily: "'Pretendard', sans-serif" }}>
         <div className="container py-5">
-          <div className="p-4 rounded-5 shadow-sm border text-center">불러오는 중...</div>
+          <div className="p-4 rounded-5 shadow-sm border text-center">
+            불러오는 중...
+          </div>
         </div>
       </div>
     );
@@ -222,7 +277,9 @@ export default function PreChecklistPage() {
     return (
       <div className="bg-white" style={{ fontFamily: "'Pretendard', sans-serif" }}>
         <div className="container py-5">
-          <div className="p-4 rounded-5 shadow-sm border text-danger">에러: {String(error)}</div>
+          <div className="p-4 rounded-5 shadow-sm border text-danger">
+            에러: {String(error)}
+          </div>
           <button className="btn btn-outline-secondary mt-3" onClick={() => navigate("/checklist")}>
             ← 체크리스트 홈
           </button>
@@ -241,7 +298,7 @@ export default function PreChecklistPage() {
     );
   }
 
-  const requiredNotDone = summary?.requiredNotDoneItems ?? [];
+  const isBusy = busyItemId !== null;
 
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -301,9 +358,7 @@ export default function PreChecklistPage() {
                 📝 계약 전 필수 점검
               </span>
 
-              <h1 className="fw-extrabold mb-2 lh-base text-dark" style={{ fontSize: "2.0rem" }}>
-                {data.templateName || "사전 체크리스트"}
-              </h1>
+              <h1 className="mb-3 fw-bold">사전 체크리스트</h1>
 
               <p className="text-secondary mb-0 mx-auto fw-medium" style={{ maxWidth: 720 }}>
                 표에서 항목을 체크한 뒤, 아래에서 요약/경고를 확인하세요.
@@ -339,9 +394,11 @@ export default function PreChecklistPage() {
                     {(data.items || []).map((item) => {
                       const area = item.checkArea || "사전 점검";
                       const status = checks[item.itemId] || "NOT_DONE";
+                      const name = `status-${item.itemId}`;
+                      const rowBusy = busyItemId === item.itemId;
 
                       return (
-                        <tr key={item.itemId}>
+                        <tr key={item.itemId} style={rowBusy ? { opacity: 0.6 } : undefined}>
                           <td className="fw-semibold">{area}</td>
 
                           <td className="text-start px-3">
@@ -349,23 +406,36 @@ export default function PreChecklistPage() {
                             {item.description && <div className="text-muted small mt-1">{item.description}</div>}
                           </td>
 
+                          {/* ✅ 진행 완료 라디오 (클릭 시 토글) */}
                           <td>
                             <input
-                              type="checkbox"
+                              type="radio"
+                              name={name}
                               checked={status === "DONE"}
-                              disabled={saving}
-                              onChange={(e) => (e.target.checked ? setDone(item.itemId) : setNotDone(item.itemId))}
+                              disabled={busyItemId} // 또는 rowBusy/busyItemId 로 바꿨으면 거기에 맞춰 사용
+                              onClick={(e) => {
+                                e.preventDefault(); // ✅ 라디오 기본 동작 막고 우리가 상태를 바꿈
+                                applyStatus(item.itemId, status === "DONE" ? "NOT_DONE" : "DONE");
+                              }}
+                              onChange={() => { }} // ✅ React 경고 방지용(실제 로직은 onClick)
                             />
                           </td>
 
+                          {/* ✅ 미진행 라디오 (미진행을 눌러도 토글되게) */}
                           <td>
                             <input
-                              type="checkbox"
+                              type="radio"
+                              name={name}
                               checked={status === "NOT_DONE"}
-                              disabled={saving}
-                              onChange={(e) => (e.target.checked ? setNotDone(item.itemId) : setDone(item.itemId))}
+                              disabled={busyItemId}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                applyStatus(item.itemId, status === "NOT_DONE" ? "DONE" : "NOT_DONE");
+                              }}
+                              onChange={() => { }}
                             />
                           </td>
+
                         </tr>
                       );
                     })}
@@ -384,21 +454,53 @@ export default function PreChecklistPage() {
                     <div className="fw-bold" style={{ color: "#059669" }}>
                       요약
                     </div>
-                    {saving && <div className="small text-muted">처리중...</div>}
+                    {isBusy && <div className="small text-muted">처리중...</div>}
                   </div>
 
                   <div className="small">
                     <span className="fw-bold">{summary.level}</span> - {summary.message}
                   </div>
 
-                  {requiredNotDone.length > 0 && (
-                    <div className="mt-2">
-                      <div className="fw-bold small mb-1">필수 미완료 ({summary.requiredNotDoneCount})</div>
-                      <ul className="small text-muted mb-0 ps-3">
-                        {requiredNotDone.map((x) => (
-                          <li key={x.itemId}>{x.title}</li>
+                  {/* ✅ 영역별 진행 요약 */}
+                  {areaStats.length > 0 && (
+                    <div className="mt-3">
+                      <div className="fw-bold small mb-2">영역별 진행 현황</div>
+
+                      <div className="row g-2">
+                        {areaStats.map((a) => (
+                          <div className="col-12 col-md-6" key={a.area}>
+                            <div className="p-3 rounded-4 border bg-light">
+                              <div className="d-flex align-items-center justify-content-between mb-1">
+                                <div className="fw-semibold">{a.area}</div>
+                                <div className="small text-muted">
+                                  {a.done}/{a.total} ({a.pct}%)
+                                </div>
+                              </div>
+
+                              <div className="progress" style={{ height: 8 }}>
+                                <div
+                                  className="progress-bar"
+                                  role="progressbar"
+                                  style={{ width: `${a.pct}%`, backgroundColor: "#059669" }}
+                                  aria-valuenow={a.pct}
+                                  aria-valuemin="0"
+                                  aria-valuemax="100"
+                                />
+                              </div>
+
+                              {a.requiredNotDone > 0 ? (
+                                <div className="mt-2 small" style={{ color: "#dc2626" }}>
+                                  필수 미완료 {a.requiredNotDone}/{a.requiredTotal}
+                                </div>
+                              ) : (
+                                <div className="mt-2 small text-muted">
+                                  필수 항목 완료 ✅ ({a.requiredTotal}/{a.requiredTotal})
+                                </div>
+                              )}
+                            </div>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </div>
                   )}
                 </div>
@@ -422,11 +524,19 @@ export default function PreChecklistPage() {
               </div>
 
               <div className="d-flex justify-content-center gap-2 mt-3">
-                <button className="btn btn-outline-emerald rounded-pill fw-bold px-4" onClick={resetAll} disabled={saving}>
+                <button
+                  className="btn btn-outline-emerald rounded-pill fw-bold px-4"
+                  onClick={resetAll}
+                  disabled={isBusy}
+                >
                   초기화
                 </button>
 
-                <button className="btn btn-emerald rounded-pill fw-bold px-4 text-white" disabled={saving} onClick={handleSaveExit}>
+                <button
+                  className="btn btn-emerald rounded-pill fw-bold px-4 text-white"
+                  disabled={isBusy}
+                  onClick={handleSaveExit}
+                >
                   저장
                 </button>
               </div>

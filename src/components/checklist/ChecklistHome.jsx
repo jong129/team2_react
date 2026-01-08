@@ -57,7 +57,7 @@ export default function ChecklistHome() {
   const handlePreStartClick = async () => {
     if (!memberId) {
       alert("로그인이 필요합니다.");
-      navigate("/member_login");
+      navigate("/login");
       return;
     }
 
@@ -96,6 +96,39 @@ export default function ChecklistHome() {
     }
   };
 
+  // ✅ POST 체크 시작
+  const handlePostStartClick = async () => {
+    if (!memberId) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+      return;
+    }
+
+    try {
+      setBusy(true);
+      setError("");
+
+      const res = await axiosInstance.post("/checklists/post/session/start", null, {
+        params: { memberId },
+      });
+
+      const sid = res?.data?.sessionId;
+      if (!sid) {
+        throw new Error("POST start 응답에 sessionId가 없습니다.");
+      }
+
+      navigate("/checklist/post", { state: { sessionId: sid } });
+    } catch (e) {
+      const msg =
+        e?.response?.data?.message ||
+        e?.response?.data ||
+        e?.message ||
+        "사후 체크 시작 중 오류";
+      setError(String(msg));
+    } finally {
+      setBusy(false);
+    }
+  };
 
   // ✅ 이어서 하기
   const handlePreContinue = async () => {
@@ -334,10 +367,11 @@ export default function ChecklistHome() {
 
                     <span
                       className="badge rounded-pill"
-                      style={{ backgroundColor: "#f1f5f9", color: "#334155", border: "1px solid #e2e8f0" }}
+                      style={{ backgroundColor: "#e0f2fe", color: "#0369a1", border: "1px solid #bae6fd" }}
                     >
-                      준비중
+                      사용 가능
                     </span>
+
                   </div>
 
                   <ul className="list-unstyled text-secondary mb-4">
@@ -355,10 +389,15 @@ export default function ChecklistHome() {
                     </li>
                   </ul>
 
-                  <button className="btn btn-outline-secondary rounded-pill fw-bold px-4" disabled>
-                    <Clock size={18} className="me-2" />
-                    준비중
+                  <button
+                    className="btn btn-outline-primary rounded-pill fw-bold px-4"
+                    onClick={handlePostStartClick}
+                    disabled={busy}
+                  >
+                    <PlayCircle size={18} className="me-2" />
+                    사후 체크 시작
                   </button>
+
                 </div>
               </div>
             </div>

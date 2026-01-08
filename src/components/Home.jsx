@@ -7,39 +7,80 @@ import {
 import { useNavigate, Link } from "react-router-dom";
 import { axiosInstance } from "./Tool";
 
-const Home = ({ isLoggedIn }) => {
+const Home = () => {
   const navigate = useNavigate();
 
   const [memberName, setMemberName] = useState(
     localStorage.getItem("memberName") || "사용자"
   );
   const [isAdmin, setIsAdmin] = useState(false); // 관리자
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [memberId, setMemberId] = useState(null);
+
+  const syncAuthFromServer = async () => {
+    try {
+      const res = await axiosInstance.get("/mypage/me"); // 세션 체크
+      const me = res.data;
+
+      setIsLoggedIn(true);
+      setMemberName(me?.name || "사용자");
+
+      const id = me?.memberId ?? null;
+      setMemberId(id);
+
+      // 기존 코드 호환용 (선택)
+      if (me?.name) localStorage.setItem("memberName", me.name);
+      if (id) localStorage.setItem("loginMemberId", String(id));
+      // eslint-disable-next-line no-unused-vars
+    } catch (e) {
+      // 세션 없음(401 포함) -> UI 로그아웃 처리
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setMemberId(null);
+      setMemberName("사용자");
+
+      localStorage.removeItem("loginMemberId");
+      localStorage.removeItem("loginLoginId");
+      localStorage.removeItem("memberName");
+    }
+  };
 
   useEffect(() => {
-    const syncName = () => {
-      setMemberName(localStorage.getItem("memberName") || "사용자");
-    };
+    syncAuthFromServer(); // 최초 1회 동기화
 
-    window.addEventListener("auth-change", syncName);
-    return () => window.removeEventListener("auth-change", syncName);
+    const onAuthChange = () => syncAuthFromServer();
+    window.addEventListener("auth-change", onAuthChange);
+
+    // 뒤로가기/앞으로가기 때도 동기화
+    const onPopState = () => syncAuthFromServer();
+    window.addEventListener("popstate", onPopState);
+
+    return () => {
+      window.removeEventListener("auth-change", onAuthChange);
+      window.removeEventListener("popstate", onPopState);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const fetchIsAdmin = async () => {
-    const memberId = localStorage.getItem("loginMemberId");
-
     if (!isLoggedIn || !memberId) {
       setIsAdmin(false);
       return;
     }
-
     try {
-      // 백엔드: MemberRoleCont -> /member_role/is_admin/{memberId}
       const res = await axiosInstance.get(`/member_role/is_admin/${memberId}`);
       setIsAdmin(!!res.data?.isAdmin);
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       setIsAdmin(false);
     }
   };
+
+  useEffect(() => {
+    fetchIsAdmin();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoggedIn, memberId]);
+
 
   React.useEffect(() => {
     fetchIsAdmin();
@@ -64,16 +105,32 @@ const Home = ({ isLoggedIn }) => {
   };
 
   // 로그아웃 처리 함수
-  const handleLogout = () => {
-    localStorage.removeItem('loginMemberId');
-    localStorage.removeItem('loginLoginId');
-    localStorage.removeItem('memberName');
+  const handleLogout = async () => {
+    try {
+      // ✅ 서버 세션 끊기 (핵심)
+      await axiosInstance.post("/member/logout");
+    // eslint-disable-next-line no-unused-vars
+    } catch (e) {
+      // 이미 세션이 없거나 네트워크 이슈여도, UI 정리는 해야 하니 무시 가능
+    } finally {
+      // ✅ UI 표시용 값 정리
+      localStorage.removeItem("loginMemberId");
+      localStorage.removeItem("loginLoginId");
+      localStorage.removeItem("memberName");
 
-    window.dispatchEvent(new Event("auth-change"));
+      setIsLoggedIn(false);
+      setIsAdmin(false);
+      setMemberId(null);
+      setMemberName("사용자");
 
-    alert('로그아웃되었습니다.');
-    navigate('/'); // 홈으로
+      window.dispatchEvent(new Event("auth-change"));
+
+      // 홈으로 보내고 싶다 했으니 홈으로
+      window.location.replace("/");
+    }
   };
+
+
 
   // ✅ AI 비서 버튼 클릭: 전역 미니챗봇 열기 이벤트 발생
   const handleAiBotClick = (e) => {
@@ -136,12 +193,19 @@ const Home = ({ isLoggedIn }) => {
             <div className="d-flex align-items-center gap-2">
               {isLoggedIn ? (
                 <>
-                  {isAdmin && (
+                  {isAdmin ? (
                     <button
                       className="btn btn-sm btn-outline-emerald rounded-pill"
                       onClick={() => navigate("/admin/dashboard")}
                     >
                       관리자 대시보드
+                    </button>
+                  ) : (
+                    <button
+                      className="btn btn-sm btn-outline-emerald rounded-pill"
+                      onClick={() => navigate("/member/mypage")}
+                    >
+                      마이페이지
                     </button>
                   )}
 
@@ -153,13 +217,11 @@ const Home = ({ isLoggedIn }) => {
                   </button>
                 </>
               ) : (
-                <a
-                  href="/login"
-                  className="btn btn-emerald rounded-pill px-4 fw-bold text-white btn-sm"
-                >
+                <a href="/login" className="btn btn-emerald rounded-pill px-4 fw-bold text-white btn-sm">
                   로그인
                 </a>
               )}
+
             </div>
 
           </div>
@@ -240,13 +302,16 @@ const Home = ({ isLoggedIn }) => {
             {isLoggedIn && (
               <>
                 <li className="mt-2 pt-3 border-top">
-                  <a
-                    href="/mypage"
-                    className="d-flex align-items-center text-decoration-none text-primary fw-bold fs-5 p-2"
+                  <button
+                    type="button"
+                    className="btn w-100 text-start d-flex align-items-center text-primary fw-bold fs-5 p-2"
+                    style={{ background: "transparent" }}
                     data-bs-dismiss="offcanvas"
+                    onClick={() => navigate("/member/mypage")}
                   >
                     <User className="me-3" /> 마이페이지 / 이력관리
-                  </a>
+                  </button>
+
                 </li>
 
                 <li className="mb-2">
@@ -447,7 +512,7 @@ const Home = ({ isLoggedIn }) => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#059669" />임대인 신분증 진위 확인</li>
                 </ul>
                 <Link
-                  to="/checklist/pre"
+                  to="/checklist"
                   className="btn btn-sm rounded-pill mt-2 fw-bold"
                   style={{ color: '#059669', border: '1px solid #059669' }}
                 >
@@ -502,8 +567,14 @@ const Home = ({ isLoggedIn }) => {
                 {isLoggedIn ? (
                   <>
                     <li className="mb-2">
-                      <a href="/mypage" className="text-decoration-none text-secondary">마이페이지</a>
+                      <Link
+                        to={isAdmin ? "/admin/dashboard" : "/member/mypage"}
+                        className="text-decoration-none text-secondary"
+                      >
+                        {isAdmin ? "관리자 대시보드" : "마이페이지"}
+                      </Link>
                     </li>
+
                     <li className="mb-2">
                       <a href="/history" className="text-decoration-none text-secondary">분석 이력 관리</a>
                     </li>
