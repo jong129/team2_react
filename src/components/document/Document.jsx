@@ -8,7 +8,7 @@ const Document = () => {
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null); // 🔥 분석 결과
-
+  const memberId = localStorage.getItem("loginMemberId");
   // 이미지 선택
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -31,11 +31,11 @@ const Document = () => {
     try {
       const formData = new FormData();
       formData.append("file1MF", image);
-      formData.append("userId", 1);
+      formData.append("userId", memberId);
       formData.append("docType", "CONTRACT");
       formData.append("status", "UPLOADED");
 
-      const res = await fetch("http://localhost:9093/documents/analyze", {
+      const res = await fetch("http://121.160.42.81:9093/documents/analyze", {
         method: "POST",
         body: formData,
       });
