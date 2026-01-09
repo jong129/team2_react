@@ -11,6 +11,7 @@ import {
   ThumbsDown,
   RefreshCcw,
   Copy,
+  Bug,
 } from "lucide-react";
 import { axiosInstance, getSseBaseUrl } from "../Tool";
 import "./MiniChatBot.css";
@@ -27,6 +28,7 @@ const DEFAULT_MESSAGES = [
     showExtras: true,
     isStreaming: false,
     chatId: null,
+    usage: null,
   },
 ];
 
@@ -36,6 +38,19 @@ const normalizeRole = (role) => {
   if (r === "user") return "user";
   if (r === "assistant" || r === "ai") return "ai";
   return "ai";
+};
+
+const normalizeUsage = (u) => {
+  if (!u) return null;
+  const model = u.model ?? u.MODEL ?? null;
+  const tokensIn = u.tokensIn ?? u.tokens_in ?? null;
+  const tokensOut = u.tokensOut ?? u.tokens_out ?? null;
+  const tokensTotal = u.tokensTotal ?? u.tokens_total ?? (tokensIn != null && tokensOut != null ? (tokensIn + tokensOut) : null);
+  const latencyMs = u.latencyMs ?? u.latency_ms ?? null;
+
+  if (model == null && tokensIn == null && tokensOut == null && tokensTotal == null && latencyMs == null) return null;
+
+  return { model, tokensIn, tokensOut, tokensTotal, latencyMs };
 };
 
 const normalizeMessages = (serverMessages) => {
@@ -49,6 +64,7 @@ const normalizeMessages = (serverMessages) => {
     likeCount: m.likeCount ?? 0,
     dislikeCount: m.dislikeCount ?? 0,
     myFeedback: m.myFeedback ?? null,
+    usage: normalizeUsage(m.usage) ?? null, // ✅ 추가
     isStreaming: false,
     showExtras: true,
   }));
@@ -71,7 +87,6 @@ const flattenGroupedSessions = (data) => {
 
 export default function MiniChatbot({ isLoggedIn }) {
   const [isChatOpen, setIsChatOpen] = useState(false);
-
   const [sessionId, setSessionId] = useState(null);
 
   const [recentSessions, setRecentSessions] = useState([]);
@@ -80,6 +95,9 @@ export default function MiniChatbot({ isLoggedIn }) {
   const [messages, setMessages] = useState(DEFAULT_MESSAGES);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+
+  // ✅ 디버그(토큰/지연) 토글
+  const [showDebug, setShowDebug] = useState(false);
 
   const bottomRef = useRef(null);
 
@@ -166,7 +184,6 @@ export default function MiniChatbot({ isLoggedIn }) {
         return String(id) === String(sid) ? { ...s, title } : s;
       });
 
-      // 목록에 없으면 맨 위에 추가(방금 만든 세션이 보이게)
       const exists = next.some((s) => String(s.sessionId ?? s.id) === String(sid));
       if (!exists) return [{ sessionId: sid, title }, ...next].slice(0, 15);
 
@@ -328,7 +345,6 @@ export default function MiniChatbot({ isLoggedIn }) {
         regenerate: true,
       });
 
-      // ✅ 세션 제목 즉시 반영(새로고침 없이)
       applySessionTitle(sessionId, res.data.sessionTitle);
 
       setMessages((prev) => [
@@ -342,6 +358,7 @@ export default function MiniChatbot({ isLoggedIn }) {
           myFeedback: null,
           references: res.data.references ?? [],
           followUpQuestions: res.data.followUpQuestions ?? [],
+          usage: normalizeUsage(res.data.usage) ?? null, // ✅ 추가
           isStreaming: false,
           showExtras: true,
         },
@@ -452,6 +469,7 @@ export default function MiniChatbot({ isLoggedIn }) {
         likeCount: 0,
         dislikeCount: 0,
         myFeedback: null,
+        usage: null, // ✅ 자리
         _tempId: aiTempId,
         isStreaming: true,
         showExtras: false,
@@ -478,7 +496,7 @@ export default function MiniChatbot({ isLoggedIn }) {
         pumpTyping(aiTempId);
       };
 
-      // ✅ meta는 저장만 (보이게는 하지 않음)
+      // ✅ meta: references / followUp / chatId / (optional) usage
       es.addEventListener("meta", (e) => {
         let meta = null;
         try {
@@ -488,7 +506,6 @@ export default function MiniChatbot({ isLoggedIn }) {
         }
         if (!meta) return;
 
-        // ✅ 세션 제목 실시간 반영(새로고침 없이)
         applySessionTitle(sid, meta.sessionTitle);
 
         setMessages((prev) =>
@@ -499,6 +516,7 @@ export default function MiniChatbot({ isLoggedIn }) {
               references: meta.references ?? m.references ?? [],
               followUpQuestions: meta.followUpQuestions ?? m.followUpQuestions ?? [],
               chatId: meta.assistantChatId ?? meta.chatId ?? m.chatId ?? null,
+              usage: normalizeUsage(meta.usage) ?? m.usage ?? null, // ✅ 추가
             };
           })
         );
@@ -571,6 +589,30 @@ export default function MiniChatbot({ isLoggedIn }) {
     }
   };
 
+  const renderUsageLine = (u) => {
+    const usage = normalizeUsage(u);
+    if (!usage) return null;
+
+    const model = usage.model ?? "-";
+    const total = usage.tokensTotal ?? "-";
+    const inOut =
+      usage.tokensIn != null && usage.tokensOut != null
+        ? ` (in ${usage.tokensIn} / out ${usage.tokensOut})`
+        : "";
+    const lat = usage.latencyMs != null ? `${usage.latencyMs}ms` : "-";
+
+    return (
+      <div className="text-muted small" style={{ marginTop: 4 }}>
+        모델: <span className="font-monospace">{model}</span>
+        {" · "}
+        토큰: <span className="font-monospace">{total}</span>
+        {inOut}
+        {" · "}
+        지연: <span className="font-monospace">{lat}</span>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Floating Button */}
@@ -590,7 +632,7 @@ export default function MiniChatbot({ isLoggedIn }) {
         </button>
       </div>
 
-      {/* Chat Window */}
+      {/* Mini Chat Window */}
       {isChatOpen && (
         <div
           className="card shadow-2xl border-0 animate-in fade-in slide-in-from-bottom-4 duration-300"
@@ -598,8 +640,8 @@ export default function MiniChatbot({ isLoggedIn }) {
             position: "fixed",
             bottom: "100px",
             right: "24px",
-            width: "360px",
-            height: "520px",
+            width: "min(420px, 92vw)",
+            height: "min(760px, 78vh)",
             zIndex: 1050,
             borderRadius: "24px",
             display: "flex",
@@ -626,18 +668,30 @@ export default function MiniChatbot({ isLoggedIn }) {
                 </span>
               </div>
 
-              <button
-                onClick={() => {
-                  closeStream();
-                  setLoading(false);
-                  setIsChatOpen(false);
-                }}
-                className="btn btn-link text-white p-0"
-                title="닫기"
-                style={{ flex: "0 0 auto" }}
-              >
-                <X size={20} />
-              </button>
+              <div className="d-flex align-items-center gap-2">
+                {/* ✅ DBG 토글 */}
+                <button
+                  className={`btn btn-sm ${showDebug ? "btn-dark" : "btn-light"}`}
+                  style={{ borderRadius: 12 }}
+                  onClick={() => setShowDebug((v) => !v)}
+                  title="디버그(토큰/지연) 표시"
+                >
+                  <Bug size={16} />
+                </button>
+
+                <button
+                  onClick={() => {
+                    closeStream();
+                    setLoading(false);
+                    setIsChatOpen(false);
+                  }}
+                  className="btn btn-link text-white p-0"
+                  title="닫기"
+                  style={{ flex: "0 0 auto" }}
+                >
+                  <X size={20} />
+                </button>
+              </div>
             </div>
 
             <div className="d-flex align-items-center gap-2 mt-2">
@@ -719,47 +773,52 @@ export default function MiniChatbot({ isLoggedIn }) {
 
                   {/* ✅ AI 답변 액션: 스트리밍 끝난 뒤에만 */}
                   {isAi && msg.showExtras && !msg.isStreaming && msg.chatId && (
-                    <div className="msg-actions" style={{ maxWidth: "85%" }}>
-                      <button
-                        type="button"
-                        className={`action-icon ${msg.myFeedback === 1 ? "active like" : ""}`}
-                        onClick={() => sendFeedback(msg.chatId, true)}
-                        title="좋아요"
-                        aria-label="좋아요"
-                      >
-                        <ThumbsUp size={18} />
-                      </button>
+                    <div style={{ maxWidth: "85%" }}>
+                      <div className="msg-actions">
+                        <button
+                          type="button"
+                          className={`action-icon ${msg.myFeedback === 1 ? "active like" : ""}`}
+                          onClick={() => sendFeedback(msg.chatId, true)}
+                          title="좋아요"
+                          aria-label="좋아요"
+                        >
+                          <ThumbsUp size={18} />
+                        </button>
 
-                      <button
-                        type="button"
-                        className={`action-icon ${msg.myFeedback === -1 ? "active dislike" : ""}`}
-                        onClick={() => sendFeedback(msg.chatId, false)}
-                        title="싫어요"
-                        aria-label="싫어요"
-                      >
-                        <ThumbsDown size={18} />
-                      </button>
+                        <button
+                          type="button"
+                          className={`action-icon ${msg.myFeedback === -1 ? "active dislike" : ""}`}
+                          onClick={() => sendFeedback(msg.chatId, false)}
+                          title="싫어요"
+                          aria-label="싫어요"
+                        >
+                          <ThumbsDown size={18} />
+                        </button>
 
-                      <button
-                        type="button"
-                        className="action-icon"
-                        onClick={regenerate}
-                        title="다시작성"
-                        aria-label="다시작성"
-                        disabled={loading}
-                      >
-                        <RefreshCcw size={18} />
-                      </button>
+                        <button
+                          type="button"
+                          className="action-icon"
+                          onClick={regenerate}
+                          title="다시작성"
+                          aria-label="다시작성"
+                          disabled={loading}
+                        >
+                          <RefreshCcw size={18} />
+                        </button>
 
-                      <button
-                        type="button"
-                        className="action-icon"
-                        onClick={() => copyText(msg.content)}
-                        title="복사"
-                        aria-label="복사"
-                      >
-                        <Copy size={18} />
-                      </button>
+                        <button
+                          type="button"
+                          className="action-icon"
+                          onClick={() => copyText(msg.content)}
+                          title="복사"
+                          aria-label="복사"
+                        >
+                          <Copy size={18} />
+                        </button>
+                      </div>
+
+                      {/* ✅ 디버그(토큰/지연) 표시: DBG 토글 ON일 때만 */}
+                      {showDebug && renderUsageLine(msg.usage)}
                     </div>
                   )}
 
