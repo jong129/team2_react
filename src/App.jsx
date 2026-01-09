@@ -7,6 +7,10 @@ import ChecklistHome from './components/checklist/ChecklistHome';
 import PreChecklistPage from './components/checklist/PreChecklistPage';
 import HistoryPage from "./components/checklist/HistoryPage";
 import PostChecklistPage from "./components/checklist/PostChecklistPage";
+import AdminChecklistManage from "./components/checklist/AdminChecklistManage";
+import AdminChecklistTemplatesPage from "./components/checklist/AdminChecklistTemplatesPage";
+import AdminChecklistTemplateEditPage from "./components/checklist/AdminChecklistTemplateEditPage";
+import AdminChecklistTemplateCreatePage from "./components/checklist/AdminChecklistTemplateCreatePage";
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
@@ -21,6 +25,14 @@ import { useEffect, useState } from "react";
 import AdminDashboard from './components/admin/AdminDashboard';
 import AdminLoginHistory from './components/admin/AdminLoginHistory';
 import AdminUserList from './components/admin/AdminUserList';
+import Member_Mypage from './components/member/member_mymage';
+import Member_Mypage_Update from './components/member/member_mypage_update';
+import AdminActivityHistory from './components/admin/AdminActivityHistory';
+import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
+import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
+import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
+import AdminCateGory from './components/admin/AdminCateGory';
+
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -48,6 +60,10 @@ function App() {
           <Route path='/checklist/pre' element={<PreChecklistPage />} />
           <Route path="/checklist/history" element={<HistoryPage />} />
           <Route path="/checklist/post" element={<PostChecklistPage />} />
+          <Route path="/admin/checklist" element={<AdminChecklistManage />} />
+          <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
+          <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
+          <Route path="/admin/checklists/templates/new" element={<AdminChecklistTemplateCreatePage />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
@@ -57,6 +73,14 @@ function App() {
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
           <Route path="/admin/login_history" element={<AdminLoginHistory />} />
           <Route path="/admin/userlist" element={<AdminUserList />} />
+          <Route path="/member/mypage" element={<Member_Mypage />} />
+          <Route path="/member/mypage/update" element={<Member_Mypage_Update />} />
+          <Route path="/admin/activity_history" element={<AdminActivityHistory />} />
+          <Route path="/admin/withdraw_history" element={<AdminWithDrawHistory />} />
+          <Route path="/admin/change_pw_history" element={<AdminChangePwHistory />} />
+          <Route path="/admin/user_update_history" element={<AdminUserUpdateHistory />} />
+          <Route path="/admin/categories" element={<AdminCateGory />} />
+
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />

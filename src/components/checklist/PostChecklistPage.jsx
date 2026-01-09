@@ -359,10 +359,10 @@ export default function PostChecklistPage() {
                     <button
                       className="btn btn-success rounded-pill px-4"
                       disabled={saving || !canComplete}
-                      onClick={onComplete}
+                      onClick={() => navigate("/checklist")}
                       title={!canComplete ? "필수 항목을 먼저 완료 처리해주세요." : ""}
                     >
-                      완료하기 → 기록으로
+                      완료하기
                     </button>
                   </div>
                 </div>
