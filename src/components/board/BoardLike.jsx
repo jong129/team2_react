@@ -3,43 +3,56 @@ import { axiosInstance } from "../Tool";
 
 /**
  * BoardLike
- * - GET  /api/board/posts/{boardId}/likes/count  : 초기 카운트 로드 (likeYn=N이면 403 -> 숨김)
- * - POST /api/board/posts/{boardId}/likes/toggle : 토글 (401/403 처리)
+ * - POST /api/board/posts/{boardId}/likes/toggle : 토글
+ * - GET  /api/board/posts/{boardId}/likes/count  : (fallback) 카운트만 로드
  *
  * props:
  * - boardId: number
+ * - initialLikedYn?: "Y" | "N"  (BoardRead 상세응답에서 내려주는 값)
+ * - initialLikeCnt?: number     (BoardRead 상세응답에서 내려주는 값)
  */
-const BoardLike = ({ boardId }) => {
-  const [hidden, setHidden] = useState(false); // likeYn=N이면 숨김
+const BoardLike = ({ boardId, initialLikedYn, initialLikeCnt }) => {
+  const [hidden, setHidden] = useState(false); // like 기능 비활성(403 등)일 때 숨김(안전장치)
   const [loading, setLoading] = useState(false);
-  const [likeCount, setLikeCount] = useState(0);
-  const [liked, setLiked] = useState(false); // 서버에 "내가 눌렀는지" 조회 API가 없으니 토글 결과로만 반영
 
-  const fetchCount = async () => {
-    setLoading(true);
-    try {
-      const res = await axiosInstance.get(`/api/board/posts/${boardId}/likes/count`);
-      setLikeCount(res.data?.likeCount ?? 0);
-      setHidden(false);
-    } catch (err) {
-      const status = err.response?.status;
-      // likeYn=N이면 백엔드에서 403 내려오도록 구현했으니 UI 숨김 처리
-      if (status === 403) {
-        setHidden(true);
-      } else {
-        // 기타 오류는 숨기지 않고 카운트만 유지
-        console.error("like count error:", err);
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
+  // ✅ 핵심: 상세 응답으로부터 초기 상태를 복원
+  const [liked, setLiked] = useState(initialLikedYn === "Y");
+  const [likeCount, setLikeCount] = useState(typeof initialLikeCnt === "number" ? initialLikeCnt : 0);
 
+  // ✅ 뒤로 갔다가 다시 들어오면 BoardRead가 row를 새로 받고,
+  // 그에 따라 initialLikedYn/initialLikeCnt가 바뀔 수 있으니 동기화
   useEffect(() => {
     if (!boardId) return;
+
+    // initial 값이 들어오면 그걸 최우선으로 UI 복원
+    if (typeof initialLikeCnt === "number") setLikeCount(initialLikeCnt);
+    if (initialLikedYn === "Y" || initialLikedYn === "N") setLiked(initialLikedYn === "Y");
+  }, [boardId, initialLikedYn, initialLikeCnt]);
+
+  // ✅ fallback: initial 값이 없을 때만 count 조회
+  useEffect(() => {
+    if (!boardId) return;
+
+    // initialLikeCnt가 이미 내려오면 굳이 count API 호출하지 않음
+    if (typeof initialLikeCnt === "number") return;
+
+    const fetchCount = async () => {
+      setLoading(true);
+      try {
+        const res = await axiosInstance.get(`/api/board/posts/${boardId}/likes/count`);
+        setLikeCount(res.data?.likeCount ?? 0);
+        setHidden(false);
+      } catch (err) {
+        const status = err.response?.status;
+        if (status === 403) setHidden(true); // 기능 OFF
+        else console.error("like count error:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     fetchCount();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [boardId]);
+  }, [boardId, initialLikeCnt]);
 
   const handleToggle = async () => {
     if (loading) return;
@@ -48,18 +61,18 @@ const BoardLike = ({ boardId }) => {
     try {
       const res = await axiosInstance.post(`/api/board/posts/${boardId}/likes/toggle`);
       const data = res.data || {};
+
+      // 너 백엔드 BoardLikeToggleResponse에 맞춰서 유지
+      // - liked: boolean
+      // - likeCount: number
       setLiked(!!data.liked);
       setLikeCount(typeof data.likeCount === "number" ? data.likeCount : likeCount);
       setHidden(false);
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) alert("로그인이 필요합니다.");
-      else if (status === 403) {
-        // likeYn=N이거나 권한 제한이 있으면 숨김(또는 안내)
-        setHidden(true);
-      } else {
-        alert("좋아요 처리 실패");
-      }
+      else if (status === 403) setHidden(true);
+      else alert("좋아요 처리 실패");
     } finally {
       setLoading(false);
     }
@@ -78,9 +91,7 @@ const BoardLike = ({ boardId }) => {
         {liked ? "공감됨" : "공감"}
       </button>
 
-      <div className="text-secondary">
-        {loading ? "..." : likeCount}
-      </div>
+      <div className="text-secondary">{loading ? "..." : likeCount}</div>
     </div>
   );
 };

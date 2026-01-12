@@ -51,7 +51,7 @@ const BoardEdit = () => {
     try {
       const res = await axiosInstance.get(`/api/board/posts/${boardId}/photos`);
       setPhotos(res.data || []);
-    // eslint-disable-next-line no-unused-vars
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       // 사진 기능 미구현/비활성/404여도 수정 화면은 살아야 하므로 조용히 무시
       setPhotos([]);
@@ -124,7 +124,7 @@ const BoardEdit = () => {
 
   // ✅ 이미지 삭제(하드삭제) + 본문 토큰도 같이 제거
   const deletePhoto = async (photoId) => {
-    if (!window.confirm("이 이미지를 삭제할까요? (DB에서도 삭제됨)")) return;
+    if (!window.confirm("이 이미지를 삭제할까요?")) return;
 
     setLoading(true);
     try {
@@ -351,13 +351,16 @@ const BoardEdit = () => {
                     ))}
                   </div>
                   <div className="text-secondary small mt-2">
-                    이미지 삭제 후, 본문 토큰도 제거되지만 최종 반영은 저장 버튼을 눌러야 합니다.
+                    이미지 삭제 후 저장 버튼을 눌러야 합니다.
                   </div>
                 </div>
               )}
 
               {/* ✅ 첨부파일 수정 영역(기존) */}
-              {row && <BoardFilesEdit boardId={Number(boardId)} />}
+              {row && String(row.fileYn).toUpperCase() !== "N" && (
+                <BoardFilesEdit boardId={Number(boardId)} />
+              )}
+
 
               <div className="d-flex align-items-center gap-3 flex-wrap mb-3">
                 <div className="form-check">
@@ -372,9 +375,6 @@ const BoardEdit = () => {
                   <label className="form-check-label" htmlFor="secretYn">
                     비밀글
                   </label>
-                </div>
-                <div className="text-secondary small">
-                  (비밀글 권한/허용 여부는 백엔드가 카테고리 설정으로 최종 제어)
                 </div>
               </div>
 

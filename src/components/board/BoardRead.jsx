@@ -33,8 +33,8 @@ const BoardRead = () => {
         return;
       }
 
-      if (status === 401) setError("로그인이 필요합니다.");
-      else if (status === 403) setError("접근 권한이 없습니다(비밀글일 수 있음).");
+      if (status === 401) setError("비밀글입니다. 로그인 후 확인하세요.");
+      else if (status === 403) setError("비밀글입니다. 작성자 또는 관리자만 열람할 수 있습니다.");
       else setError("조회 실패");
     } finally {
       setLoading(false);
@@ -46,7 +46,6 @@ const BoardRead = () => {
 
     try {
       await axiosInstance.delete(`/api/board/posts/${boardId}`);
-
       if (categoryId) navigate(`/board?categoryId=${categoryId}`, { replace: true });
       else navigate("/board", { replace: true });
     } catch (err) {
@@ -61,6 +60,18 @@ const BoardRead = () => {
     fetchRead();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [boardId]);
+
+  // ✅ 값이 'N'이면 숨김, 그 외(null/undefined 포함)는 기본 표시
+  const feature = useMemo(() => {
+    const ynDefaultY = (v) => (String(v).toUpperCase() === "N" ? "N" : "Y");
+
+    return {
+      commentYn: ynDefaultY(row?.commentYn),
+      likeYn: ynDefaultY(row?.likeYn),
+      reportYn: ynDefaultY(row?.reportYn),
+      fileYn: ynDefaultY(row?.fileYn),
+    };
+  }, [row]);
 
   // ✅ [img:숫자] 토큰을 이미지로 치환해서 렌더링
   const renderedContent = useMemo(() => {
@@ -79,7 +90,6 @@ const BoardRead = () => {
       const end = tokenRegex.lastIndex;
       const photoId = match[1];
 
-      // 토큰 이전 텍스트
       if (start > lastIndex) {
         parts.push(
           <span key={`t-${key++}`} style={{ whiteSpace: "pre-wrap" }}>
@@ -88,12 +98,9 @@ const BoardRead = () => {
         );
       }
 
-      // 토큰 -> 이미지
       parts.push(
         <div key={`i-${key++}`} className="my-3">
           <img
-            // ✅ 백엔드 이미지 VIEW 엔드포인트에 맞춰라
-            // 예: @GetMapping("/api/board/photos/{photoId}/view")
             src={`/api/board/photos/${photoId}/view`}
             alt={`photo-${photoId}`}
             className="img-fluid rounded"
@@ -105,7 +112,6 @@ const BoardRead = () => {
       lastIndex = end;
     }
 
-    // 마지막 남은 텍스트
     if (lastIndex < content.length) {
       parts.push(
         <span key={`t-${key++}`} style={{ whiteSpace: "pre-wrap" }}>
@@ -179,23 +185,33 @@ const BoardRead = () => {
 
               <hr />
 
-              {/* ✅ 본문(텍스트 + 이미지 토큰 치환) */}
               <div>{renderedContent}</div>
             </>
           )}
         </div>
       </div>
 
-      {!loading && row && <BoardFilesRead boardId={Number(boardId)} />}
+      {/* ✅ 첨부파일: fileYn이 Y일 때만 */}
+      {!loading && row && feature.fileYn === "Y" && <BoardFilesRead boardId={Number(boardId)} />}
 
-      {!loading && row && (
+      {/* ✅ 공감/신고: 여기서만 한 번 렌더링(중복 제거) */}
+      {!loading && row && (feature.likeYn === "Y" || feature.reportYn === "Y") && (
         <div className="d-flex justify-content-between align-items-center mt-3">
-          <BoardLike boardId={Number(boardId)} />
-          <BoardReport boardId={Number(boardId)} />
+          <div>
+            {feature.likeYn === "Y" && (
+              <BoardLike
+                boardId={Number(boardId)}
+                initialLikedYn={row.likedYn}
+                initialLikeCnt={row.likeCnt}
+              />
+            )}
+          </div>
+          <div>{feature.reportYn === "Y" && <BoardReport boardId={Number(boardId)} />}</div>
         </div>
       )}
 
-      {!loading && row && <BoardComments boardId={Number(boardId)} />}
+      {/* ✅ 댓글 */}
+      {!loading && row && feature.commentYn === "Y" && <BoardComments boardId={Number(boardId)} />}
     </div>
   );
 };
