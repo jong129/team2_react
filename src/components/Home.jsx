@@ -109,7 +109,7 @@ const Home = () => {
     try {
       // ✅ 서버 세션 끊기 (핵심)
       await axiosInstance.post("/member/logout");
-    // eslint-disable-next-line no-unused-vars
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       // 이미 세션이 없거나 네트워크 이슈여도, UI 정리는 해야 하니 무시 가능
     } finally {
@@ -529,7 +529,13 @@ const Home = () => {
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />전입신고 및 확정일자 받기</li>
                   <li className="mb-2"><CheckCircle2 size={18} className="me-2" color="#10b981" />시설물 파손 상태 사진 촬영</li>
                 </ul>
-                <a href="#" className="btn btn-sm rounded-pill mt-2 fw-bold" style={{ color: '#10b981', border: '1px solid #10b981' }}>전체 보기</a>
+                <Link
+                  to="/checklist"
+                  className="btn btn-sm rounded-pill mt-2 fw-bold"
+                  style={{ color: '#059669', border: '1px solid #059669' }}
+                >
+                  전체 보기
+                </Link>
               </div>
             </div>
 

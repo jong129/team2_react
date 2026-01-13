@@ -52,19 +52,21 @@ const AdminChecklistManage = () => {
           </div>
         </div>
 
-        {/* 신규 생성 */}
+        {/* AI 사후 체크리스트 생성 */}
         <div className="col-md-4">
           <div className="border rounded-4 p-4 shadow-sm h-100">
             <PlusCircle size={32} className="mb-3" color="#059669" />
-            <h5 className="fw-bold">신규 생성</h5>
-            <p className="text-secondary small">새로운 체크리스트 템플릿 생성</p>
+            <h5 className="fw-bold">사후 체크리스트 AI 개선 엔진</h5>
+            <p className="text-secondary small">
+              실제 사용자 행동 데이터를 분석해, 개선이 필요한 사후 체크리스트 템플릿 초안을 AI가 생성합니다
+            </p>
             <button
               className="btn btn-sm btn-outline-success"
               onClick={() => navigate("/admin/checklists/templates/new")}
               disabled
-              title="다음 단계에서 구현"
+              title="사후 체크리스트 AI 개선 엔진 기능은 준비 중입니다."
             >
-              새 템플릿 만들기
+              AI기반 템플릿 개선안 생성
             </button>
           </div>
         </div>

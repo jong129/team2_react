@@ -123,8 +123,7 @@ export default function AdminChecklistTemplatesPage() {
           <div className="text-secondary small">총 {pageData?.totalElements ?? 0}개</div>
         </div>
         <button className="btn btn-outline-secondary" onClick={() => navigate("/admin/checklist")}>
-          <ArrowLeft size={16} className="me-1" />
-          체크리스트 관리
+          뒤로
         </button>
       </div>
 

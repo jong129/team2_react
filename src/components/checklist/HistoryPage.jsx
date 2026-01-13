@@ -18,6 +18,14 @@ export default function HistoryPage() {
   const [error, setError] = useState("");
   const [items, setItems] = useState([]);
 
+  const [showSat, setShowSat] = useState(false);
+  const [satSessionId, setSatSessionId] = useState(null);
+
+  const [satRating, setSatRating] = useState(5);
+  const [satComment, setSatComment] = useState("");
+  const [satSubmitting, setSatSubmitting] = useState(false);
+
+
   // 검색 필터
   const [statusFilter, setStatusFilter] = useState(""); // "" | "IN_PROGRESS" | "COMPLETED"
   const [fromDate, setFromDate] = useState(""); // YYYY-MM-DD
@@ -66,6 +74,19 @@ export default function HistoryPage() {
     // ✅ POST 삭제
     await axiosInstance.delete(`/checklists/post/session/${sessionId}`);
   };
+
+  const loadSatisfaction = async (sessionId) => {
+    const res = await axiosInstance.get(`/checklists/post/session/${sessionId}/satisfaction`);
+    return res?.data?.data ?? res?.data ?? null;
+  };
+
+  const saveSatisfaction = async (sessionId, rating, commentText) => {
+    await axiosInstance.post(`/checklists/post/session/${sessionId}/satisfaction`, {
+      rating,
+      commentText,
+    });
+  };
+
 
 
   const refresh = async () => {
@@ -133,12 +154,32 @@ export default function HistoryPage() {
   };
 
   const handleComplete = async (sessionId) => {
-    if (!window.confirm("이 세션을 완료 처리할까요?")) return;
+    if (!window.confirm("이 기록을 완료 처리할까요?")) return;
 
     try {
       setBusyId(sessionId);
+
       await completeSession(sessionId);
-      await refresh();
+
+      // ✅ PRE는 기존대로 끝
+      if (phase === "PRE") {
+        await refresh();
+        return;
+      }
+
+      // ✅ POST는 만족도 이미 있으면 그냥 refresh
+      const existing = await loadSatisfaction(sessionId);
+      if (existing && existing.rating) {
+        await refresh();
+        return;
+      }
+
+      // ✅ 만족도 없으면 모달 오픈
+      setSatSessionId(sessionId);
+      setSatRating(5);
+      setSatComment("");
+      setShowSat(true);
+
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -336,7 +377,7 @@ export default function HistoryPage() {
                                   열기
                                 </button>
 
-                                {!completed && (
+                                {phase === "PRE" && !completed && (
                                   <button
                                     className="btn btn-sm btn-outline-emerald rounded-pill fw-bold"
                                     onClick={() => handleComplete(it.sessionId)}
@@ -394,6 +435,77 @@ export default function HistoryPage() {
           </div>
         </div>
       </section>
+      {showSat && (
+        <div
+          className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center"
+          style={{ background: "rgba(0,0,0,0.35)", zIndex: 1050 }}
+        >
+          <div className="bg-white rounded-5 shadow p-4" style={{ width: "min(520px, 92vw)" }}>
+            <div className="fw-bold mb-2" style={{ color: "#059669" }}>만족도 조사</div>
+            <div className="text-muted small mb-3">
+              사후 체크리스트 완료 후 1회만 저장됩니다.
+            </div>
+
+            <div className="d-flex gap-2 mb-3 flex-wrap">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={`btn ${satRating === n ? "btn-success" : "btn-outline-success"} rounded-pill`}
+                  onClick={() => setSatRating(n)}
+                  disabled={satSubmitting}
+                >
+                  {n}점
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              className="form-control rounded-4"
+              rows={3}
+              placeholder="(선택) 느낀 점을 한 줄로 남겨주세요"
+              value={satComment}
+              onChange={(e) => setSatComment(e.target.value)}
+              disabled={satSubmitting}
+            />
+
+            <div className="d-flex justify-content-end gap-2 mt-3">
+              <button
+                className="btn btn-outline-secondary rounded-pill"
+                disabled={satSubmitting}
+                onClick={async () => {
+                  setShowSat(false);
+                  setSatSessionId(null);
+                  await refresh();
+                }}
+              >
+                건너뛰기
+              </button>
+
+              <button
+                className="btn btn-success rounded-pill"
+                disabled={satSubmitting || !satSessionId}
+                onClick={async () => {
+                  try {
+                    setSatSubmitting(true);
+                    await saveSatisfaction(satSessionId, satRating, satComment);
+                    setShowSat(false);
+                    setSatSessionId(null);
+                    await refresh();
+                    alert("만족도 저장 완료!");
+                  } catch (e) {
+                    alert(e?.response?.data?.message || e?.message || "만족도 저장 실패");
+                  } finally {
+                    setSatSubmitting(false);
+                  }
+                }}
+              >
+                제출
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .btn-outline-emerald { border: 1px solid #059669; color: #059669; transition: all 0.2s; }
