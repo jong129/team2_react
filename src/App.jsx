@@ -15,7 +15,6 @@ import AdminPostChecklistAiPanel from "./components/checklist/AdminPostChecklist
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
-import RagChat from './components/aichatbot/RagChat';
 import MemberChatPage from "./components/aichatbot/MemberChatPage";
 import AdminChatPage from './components/aichatbot/AdminChatPage';
 import ChatbotStats from './components/aichatbot/ChatbotStats';
@@ -33,6 +32,7 @@ import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
 import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
 import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
 import AdminCateGory from './components/admin/AdminCateGory';
+import AdminDocuments from './components/admin/AdminDocuments';
 import Board from './components/board/Board';
 import BoardWrite from './components/board/BoardWrite';
 import BoardEdit from './components/board/BoardEdit';
@@ -85,13 +85,12 @@ function App() {
           <Route path="/admin/change_pw_history" element={<AdminChangePwHistory />} />
           <Route path="/admin/user_update_history" element={<AdminUserUpdateHistory />} />
           <Route path="/admin/categories" element={<AdminCateGory />} />
+          <Route path="/admin/documents" element={<AdminDocuments />} />
           <Route path="/board/*" element={<Board />} />
           <Route path="/board/write" element={<BoardWrite />} />
           <Route path="/board/edit/:boardId" element={<BoardEdit />} />
           <Route path="/board/read/:boardId" element={<BoardRead />} />
-
           {/* ✅ RAG 전용 챗 페이지 */}
-          <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/chatbotstats" element={<ChatbotStats />} />
