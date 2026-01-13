@@ -19,7 +19,7 @@ const Home = () => {
 
   const syncAuthFromServer = async () => {
     try {
-      const res = await axiosInstance.get("/mypage/me"); // 세션 체크
+      const res = await axiosInstance.get("/mypage/me");
       const me = res.data;
 
       setIsLoggedIn(true);
@@ -28,22 +28,30 @@ const Home = () => {
       const id = me?.memberId ?? null;
       setMemberId(id);
 
-      // 기존 코드 호환용 (선택)
       if (me?.name) localStorage.setItem("memberName", me.name);
       if (id) localStorage.setItem("loginMemberId", String(id));
-      // eslint-disable-next-line no-unused-vars
-    } catch (e) {
-      // 세션 없음(401 포함) -> UI 로그아웃 처리
-      setIsLoggedIn(false);
-      setIsAdmin(false);
-      setMemberId(null);
-      setMemberName("사용자");
 
-      localStorage.removeItem("loginMemberId");
-      localStorage.removeItem("loginLoginId");
-      localStorage.removeItem("memberName");
+    } catch (e) {
+      const status = e?.response?.status;
+
+      // 세션 없음/권한 없음만 "정상 로그아웃 처리"
+      if (status === 401 || status === 403) {
+        setIsLoggedIn(false);
+        setIsAdmin(false);
+        setMemberId(null);
+        setMemberName("사용자");
+
+        localStorage.removeItem("loginMemberId");
+        localStorage.removeItem("loginLoginId");
+        localStorage.removeItem("memberName");
+        return;
+      }
+
+      // 그 외(서버다운/500/네트워크)는 상태를 날리지 말고 로그만
+      console.error("syncAuthFromServer error:", e);
     }
   };
+
 
   useEffect(() => {
     syncAuthFromServer(); // 최초 1회 동기화
@@ -186,6 +194,11 @@ const Home = () => {
               <li className="nav-item">
                 <a className="nav-link mx-2" onClick={() => navigate("/aibot")} style={{ cursor: "pointer" }}>
                   AI 챗봇 대화 내역
+                </a>
+              </li>
+              <li className="nav-item">
+                <a className="nav-link mx-2" onClick={() => navigate("/board")} style={{ cursor: "pointer" }}>
+                  게시판
                 </a>
               </li>
             </ul>
