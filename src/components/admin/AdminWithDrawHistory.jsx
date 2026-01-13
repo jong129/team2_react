@@ -119,8 +119,12 @@ const AdminWithDrawHistory = () => {
       await axiosInstance.post(`/api/admin/members/${memberId}/restore`);
       alert("복구 완료");
 
-      // 복구 후 리스트 다시 조회
-      fetchList();
+      // ✅ 복구된 row는 버튼 숨김 처리(기록은 유지)
+      setRows((prev) =>
+        prev.map((r) => (r.memberId === memberId ? { ...r, memberStatus: "ACTIVE" } : r))
+      );
+
+      // fetchList(); // 서버 기준으로 재조회 필요하면 주석 해제
     } catch (err) {
       if (err.response?.status === 401) alert("로그인이 필요합니다.");
       else if (err.response?.status === 403) alert("관리자 권한이 없습니다.");
@@ -256,16 +260,16 @@ const AdminWithDrawHistory = () => {
                       <td>{r.createdAt}</td>
                       <td>
                         <div className="d-flex gap-2">
-                          <button
-                            className="btn btn-sm btn-outline-success"
-                            onClick={() => restoreMember(r.memberId, r.loginId)}
-                            disabled={loading || restoringId === r.memberId}
-                          >
-                            {restoringId === r.memberId ? "복구중..." : "복구"}
-                          </button>
-
-                          {/* 말소(완전삭제)는 백엔드 API가 준비되면 그때 추가
-                              예: DELETE /api/admin/members/{memberId}/purge */}
+                          {/* ✅ 복구 완료면 버튼 숨김 */}
+                          {r.memberStatus !== "ACTIVE" && (
+                            <button
+                              className="btn btn-sm btn-outline-success"
+                              onClick={() => restoreMember(r.memberId, r.loginId)}
+                              disabled={loading || restoringId === r.memberId}
+                            >
+                              {restoringId === r.memberId ? "복구중..." : "복구"}
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
