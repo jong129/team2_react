@@ -32,7 +32,7 @@ import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
 import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
 import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
 import AdminCateGory from './components/admin/AdminCateGory';
-
+import AdminDocuments from './components/admin/AdminDocuments';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -80,7 +80,7 @@ function App() {
           <Route path="/admin/change_pw_history" element={<AdminChangePwHistory />} />
           <Route path="/admin/user_update_history" element={<AdminUserUpdateHistory />} />
           <Route path="/admin/categories" element={<AdminCateGory />} />
-
+          <Route path="/admin/documents" element={<AdminDocuments />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
