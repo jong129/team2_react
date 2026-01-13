@@ -82,7 +82,7 @@ const Home = () => {
   }, [isLoggedIn, memberId]);
 
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchIsAdmin();
 
     const syncAuth = () => {
