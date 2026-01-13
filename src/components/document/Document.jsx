@@ -1,22 +1,21 @@
 import React, { useState } from "react";
 import { UploadCloud, Image as ImageIcon, Scan, FileText } from "lucide-react";
-import { axiosInstance } from "../Tool"; // 경로 맞춰
-
 
 const Document = () => {
   const [image, setImage] = useState(null);
   const [preview, setPreview] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState(null); // 🔥 분석 결과
+  const [result, setResult] = useState(null);
   const memberId = localStorage.getItem("loginMemberId");
+
   // 이미지 선택
   const handleImageChange = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
     setImage(file);
     setPreview(URL.createObjectURL(file));
-    setResult(null); // 새 업로드 시 이전 결과 초기화
+    setResult(null);
   };
 
   // 분석 요청
@@ -32,7 +31,7 @@ const Document = () => {
       const formData = new FormData();
       formData.append("file1MF", image);
       formData.append("userId", memberId);
-      formData.append("docType", "CONTRACT");
+      formData.append("docType", "UNKNOWN");
       formData.append("status", "UPLOADED");
 
       const res = await fetch("http://121.160.42.81:9093/documents/analyze", {
@@ -40,21 +39,25 @@ const Document = () => {
         body: formData,
       });
 
-      if (!res.ok) throw new Error("분석 실패");
+      if (!res.ok) {
+        // 서버가 에러 메시지를 본문에 담아주는 경우를 위해
+        const errText = await res.text().catch(() => "");
+        throw new Error(errText || "분석 실패");
+      }
 
-      // 🔥 FastAPI 문자열 / JSON 모두 대응
-      const contentType = res.headers.get("content-type");
-      const data =
-        contentType && contentType.includes("application/json")
-          ? await res.json()
-          : await res.text();
+      // ✅ content-type 믿지 말고, 일단 text로 받은 후 JSON 파싱 시도
+      const raw = await res.text();
+      let data = raw;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        // raw가 JSON이 아니면 문자열 그대로 유지
+      }
 
       setResult(data);
-
-
     } catch (err) {
       console.error(err);
-      alert("문서 분석 중 오류 발생");
+      alert(`문서 분석 중 오류 발생\n${err?.message ? `(${err.message})` : ""}`);
     } finally {
       setLoading(false);
     }
@@ -124,23 +127,92 @@ const Document = () => {
               <p className="text-muted" style={{ whiteSpace: "pre-line" }}>
                 {result}
               </p>
-            ) : (
-              <div>
-                <p>
-                  <strong>위험도:</strong> {result.risk_score}%
-                </p>
+            ) : (() => {
+              // ✅ analysis가 있든 없든 둘 다 대응
+              const a = result?.analysis ?? result;
 
-                <p>
-                  <strong>요약:</strong> {result.summary}
-                </p>
+              const docType = a?.doc_type ?? "-";
+              const policyVersion = a?.policy_version ?? "-";
+              const riskScore = a?.risk_score ?? null;
+              const aiExplanation = a?.ai_explanation ?? "";
 
-                <ul>
-                  {result.reasons?.map((r, i) => (
-                    <li key={i}>{r}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
+              const tone =
+                riskScore == null
+                  ? "secondary"
+                  : riskScore <= 5
+                  ? "success"
+                  : riskScore <= 15
+                  ? "warning"
+                  : "danger";
+
+              const riskLabel =
+                riskScore == null
+                  ? "미산정"
+                  : riskScore <= 5
+                  ? "낮음"
+                  : riskScore <= 15
+                  ? "보통"
+                  : "높음";
+
+              // 점수 스케일에 맞게 조절: 지금은 0~100 가정
+              const progressPct =
+                riskScore == null ? 0 : Math.max(0, Math.min(100, Number(riskScore)));
+
+              return (
+                <div className="d-flex flex-column gap-4">
+                  {/* 상단 KPI 3개 */}
+                  <div className="row g-3">
+                    <div className="col-md-4">
+                      <div className="border rounded-4 p-3 h-100">
+                        <div className="text-muted small">문서 유형</div>
+                        <div className="fw-bold fs-4">{docType}</div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4">
+                      <div className="border rounded-4 p-3 h-100">
+                        <div className="text-muted small">정책 버전</div>
+                        <div className="fw-bold fs-4">{policyVersion}</div>
+                      </div>
+                    </div>
+
+                    <div className="col-md-4">
+                      <div className="border rounded-4 p-3 h-100">
+                        <div className="text-muted small">위험 점수</div>
+                        <div className="d-flex align-items-center gap-2">
+                          <div className="fw-bold fs-4">
+                            {riskScore == null ? "-" : `${riskScore}점`}
+                          </div>
+                          <span className={`badge bg-${tone} rounded-pill`}>{riskLabel}</span>
+                        </div>
+
+                        {/* 게이지 */}
+                        {riskScore != null && (
+                          <div className="progress mt-2" style={{ height: 10 }}>
+                            <div
+                              className={`progress-bar bg-${tone}`}
+                              role="progressbar"
+                              style={{ width: `${progressPct}%` }}
+                              aria-valuenow={Number(riskScore)}
+                              aria-valuemin="0"
+                              aria-valuemax="100"
+                            />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* AI 설명 */}
+                  <div className="border rounded-4 p-3">
+                    <div className="text-muted small mb-2">AI 설명</div>
+                    <div style={{ whiteSpace: "pre-line", lineHeight: 1.6 }}>
+                      {aiExplanation || "설명 없음"}
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         )}
       </div>
@@ -153,6 +225,9 @@ const Document = () => {
         }
         .btn-emerald:hover {
           background-color: #047857;
+        }
+        .border-dashed {
+          border-style: dashed !important;
         }
       `}</style>
     </div>
