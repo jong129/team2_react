@@ -32,7 +32,14 @@ import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
 import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
 import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
 import AdminCateGory from './components/admin/AdminCateGory';
+<<<<<<< HEAD
 import AdminDocuments from './components/admin/AdminDocuments';
+=======
+import Board from './components/board/Board';
+import BoardWrite from './components/board/BoardWrite';
+import BoardEdit from './components/board/BoardEdit';
+import BoardRead from './components/board/BoardRead';
+>>>>>>> cc1746b3243f861d66644b77efa578973b95572d
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -81,6 +88,10 @@ function App() {
           <Route path="/admin/user_update_history" element={<AdminUserUpdateHistory />} />
           <Route path="/admin/categories" element={<AdminCateGory />} />
           <Route path="/admin/documents" element={<AdminDocuments />} />
+          <Route path="/board/*" element={<Board />} />
+          <Route path="/board/write" element={<BoardWrite />} />
+          <Route path="/board/edit/:boardId" element={<BoardEdit />} />
+          <Route path="/board/read/:boardId" element={<BoardRead />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/chat" element={<RagChat />} />
           <Route path="/aibot" element={<MemberChatPage />} />
