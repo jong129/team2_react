@@ -61,12 +61,10 @@ const AdminChecklistManage = () => {
               실제 사용자 행동 데이터를 분석해, 개선이 필요한 사후 체크리스트 템플릿 초안을 AI가 생성합니다
             </p>
             <button
-              className="btn btn-sm btn-outline-success"
-              onClick={() => navigate("/admin/checklists/templates/new")}
-              disabled
-              title="사후 체크리스트 AI 개선 엔진 기능은 준비 중입니다."
+              className="btn btn-sm btn-success"
+              onClick={() => navigate("/admin/ai/post")}
             >
-              AI기반 템플릿 개선안 생성
+              AI기반 템플릿 개선 보기
             </button>
           </div>
         </div>
