@@ -288,7 +288,7 @@ const BoardWrite = () => {
                 <div>
                   <div className="fw-semibold">AI 글써주기</div>
                   <div className="text-secondary small">
-                    제목/내용에 적어둔 키워드 기반으로 초안을 다듬어줍니다. 없는 내용은 만들지 않게 설계하세요.
+                    제목/내용에 적어둔 키워드 기반으로 초안을 다듬어줍니다.
                   </div>
                 </div>
                 <button className="btn btn-outline-primary" type="button" onClick={onAiWrite} disabled={aiLoading || loading}>
