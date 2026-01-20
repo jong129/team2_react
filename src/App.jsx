@@ -37,6 +37,8 @@ import Board from './components/board/Board';
 import BoardWrite from './components/board/BoardWrite';
 import BoardEdit from './components/board/BoardEdit';
 import BoardRead from './components/board/BoardRead';
+import Member_Inquiries from './components/member/member_inquiries';
+import Admin_inquiries_reply from './components/admin/Admin_inquiries_reply';
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -90,6 +92,8 @@ function App() {
           <Route path="/board/write" element={<BoardWrite />} />
           <Route path="/board/edit/:boardId" element={<BoardEdit />} />
           <Route path="/board/read/:boardId" element={<BoardRead />} />
+          <Route path="/member/inquiries" element={<Member_Inquiries />} />
+          <Route path="/admin/inquiries_reply" element={<Admin_inquiries_reply />} />
           {/* ✅ RAG 전용 챗 페이지 */}
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
