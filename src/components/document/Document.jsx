@@ -34,7 +34,7 @@ const Document = () => {
       formData.append("docType", "UNKNOWN");
       formData.append("status", "UPLOADED");
 
-      const res = await fetch("http://121.160.42.81:9093/documents/analyze", {
+      const res = await fetch("http://121.160.42.21:9093/documents/analyze", {
         method: "POST",
         body: formData,
       });

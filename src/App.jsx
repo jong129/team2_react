@@ -31,14 +31,12 @@ import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
 import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
 import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
 import AdminCateGory from './components/admin/AdminCateGory';
-<<<<<<< HEAD
 import AdminDocuments from './components/admin/AdminDocuments';
-=======
 import Board from './components/board/Board';
 import BoardWrite from './components/board/BoardWrite';
 import BoardEdit from './components/board/BoardEdit';
 import BoardRead from './components/board/BoardRead';
->>>>>>> cc1746b3243f861d66644b77efa578973b95572d
+
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -51,7 +49,7 @@ function App() {
     // 처음 1회 동기화
     sync();
 
-    // ✅ 같은 탭에서도 동작하게 커스텀 이벤트 사용
+    // 같은 탭에서도 동작하게 커스텀 이벤트 사용
     window.addEventListener("auth-change", sync);
 
     return () => window.removeEventListener("auth-change", sync);
@@ -91,13 +89,13 @@ function App() {
           <Route path="/board/write" element={<BoardWrite />} />
           <Route path="/board/edit/:boardId" element={<BoardEdit />} />
           <Route path="/board/read/:boardId" element={<BoardRead />} />
-          {/* ✅ RAG 전용 챗 페이지 */}
+          {/* RAG 전용 챗 페이지 */}
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/chatbotstats" element={<ChatbotStats />} />
         </Routes>
 
-        {/* ✅ 어디 페이지든 항상 떠있는 미니 챗봇 */}
+        {/* 어디 페이지든 항상 떠있는 미니 챗봇 */}
         <MiniChatbot isLoggedIn={isLoggedIn} />
       </div>
     </BrowserRouter>
