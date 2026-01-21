@@ -22,9 +22,15 @@ const BoardWrite = () => {
     postPassword: "",
   });
 
+  // 첨부파일
   const [files, setFiles] = useState([]);
+
+  // 이미지
   const imgRef = useRef(null);
-  const [imageFiles, setImageFiles] = useState([]);
+
+  // ✅ 이미지 + 검증상태를 함께 관리
+  // { file, status: "PENDING"|"OK"|"BLOCKED", reasonCode?, reasonText? }
+  const [imageItems, setImageItems] = useState([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -32,14 +38,26 @@ const BoardWrite = () => {
   // AI draft UI state
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
-  const [aiDraft, setAiDraft] = useState(""); // 미리보기용 (원하면 바로 content에 적용만 해도 됨)
+  const [aiDraft, setAiDraft] = useState(""); // 미리보기용
+
+  // ✅ 이미지 차단 여부
+  const hasBlockedImage = useMemo(
+    () => imageItems.some((x) => x.status === "BLOCKED"),
+    [imageItems]
+  );
+
+  // ✅ 업로드 가능한(OK) 이미지 파일만 추출
+  const okImageFiles = useMemo(
+    () => imageItems.filter((x) => x.status === "OK").map((x) => x.file),
+    [imageItems]
+  );
 
   const fetchCategories = async () => {
     setError("");
     try {
       const res = await axiosInstance.get("/api/board/categories/list");
       setCategories(res.data || []);
-    // eslint-disable-next-line no-unused-vars
+      // eslint-disable-next-line no-unused-vars
     } catch (e) {
       setError("카테고리 조회 실패");
     }
@@ -80,13 +98,75 @@ const BoardWrite = () => {
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const onPickImages = (e) => {
+  // ==========================
+  // ✅ 이미지 사전검증(precheck)
+  // - 너가 말한 엔드포인트가 이미 있음: /api/board/photos/precheck
+  // - 응답은 아래처럼 온다고 가정:
+  //   [{ filename, allowed, reasonCode, reasonText, score }, ...]
+  // ==========================
+  const precheckImages = async (pickedFiles) => {
+    if (!pickedFiles || pickedFiles.length === 0) return [];
+
+    const formData = new FormData();
+    pickedFiles.forEach((f) => formData.append("photos", f));
+
+    const res = await axiosInstance.post("/api/board/photos/precheck", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+
+    return res.data || [];
+  };
+
+  // ✅ 파일 선택 순간에 바로 검사 + 결과 UI 표시
+  const onPickImages = async (e) => {
     const picked = Array.from(e.target.files || []);
-    setImageFiles(picked);
+    if (picked.length === 0) return;
+
+    // 같은 파일 다시 선택 가능하게 input 초기화
+    if (imgRef.current) imgRef.current.value = "";
+
+    // 1) PENDING 표시
+    setImageItems(picked.map((f) => ({ file: f, status: "PENDING" })));
+
+    try {
+      const results = await precheckImages(picked);
+
+      // 결과가 순서대로 온다는 전제(대부분 그렇게 구현됨)
+      const next = picked.map((f, idx) => {
+        const r = results[idx];
+
+        // 응답 누락 시: 보수적으로 막고 싶으면 BLOCKED로 바꿔도 됨
+        if (!r) return { file: f, status: "OK" };
+
+        if (r.allowed === true) {
+          return { file: f, status: "OK" };
+        }
+
+        return {
+          file: f,
+          status: "BLOCKED",
+          reasonCode: r.reasonCode || "OTHER",
+          reasonText: r.reasonText || "업로드 불가 이미지",
+        };
+      });
+
+      setImageItems(next);
+    // eslint-disable-next-line no-unused-vars
+    } catch (err) {
+      // 서버/AI 장애 시: 너희 정책이 "보수적으로 막기"이므로 차단 처리
+      setImageItems(
+        picked.map((f) => ({
+          file: f,
+          status: "BLOCKED",
+          reasonCode: "FASTAPI_ERROR",
+          reasonText: "이미지 판별 서버 오류로 업로드할 수 없습니다.",
+        }))
+      );
+    }
   };
 
   const removePickedImage = (index) => {
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImageItems((prev) => prev.filter((_, i) => i !== index));
   };
 
   const uploadFiles = async (boardId) => {
@@ -100,11 +180,12 @@ const BoardWrite = () => {
     });
   };
 
+  // ✅ OK 이미지 파일만 업로드
   const uploadImages = async (boardId) => {
-    if (!imageFiles || imageFiles.length === 0) return [];
+    if (!okImageFiles || okImageFiles.length === 0) return [];
 
     const formData = new FormData();
-    imageFiles.forEach((f) => formData.append("photos", f));
+    okImageFiles.forEach((f) => formData.append("photos", f));
 
     const res = await axiosInstance.post(`/api/board/posts/${boardId}/photos`, formData, {
       headers: { "Content-Type": "multipart/form-data" },
@@ -133,15 +214,13 @@ const BoardWrite = () => {
     setAiLoading(true);
     setAiError("");
     try {
-      // 최소 입력만 전달 (title/content 비어도 서버에서 처리하도록 설계 가능)
       const payload = {
         title: form.title || "",
         content: form.content || "",
-        force: true,      // 캐시 정책 쓰면 false/true 선택
+        force: true,
         truncate: true,
       };
 
-      // 백엔드 엔드포인트: /api/board/ai/write/{categoryId}
       const res = await axiosInstance.post(`/api/board/ai/write/${categoryId}`, payload);
       const text = res.data?.resultText || "";
 
@@ -150,12 +229,7 @@ const BoardWrite = () => {
         return;
       }
 
-      // 1) 미리보기로 보여주고 사용자가 적용 버튼을 누르게 하고 싶으면:
       setAiDraft(text);
-
-      // 2) 즉시 content에 덮어쓰고 싶으면 아래 주석 해제:
-      // setForm((prev) => ({ ...prev, content: text }));
-
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) setAiError("로그인이 필요합니다.");
@@ -198,8 +272,61 @@ const BoardWrite = () => {
       return;
     }
 
+    // ✅ 1) 등록 직전: 차단 이미지가 있으면 글 등록 자체를 막는다
+    if (hasBlockedImage) {
+      const reasons = imageItems
+        .filter((x) => x.status === "BLOCKED")
+        .map((x) => x.reasonText || "업로드 불가 이미지")
+        .join("\n");
+      alert(`유해/상업적 이미지가 포함되어 업로드할 수 없습니다.\n\n${reasons}`);
+      return;
+    }
+
+    // ✅ 2) 등록 직전 재검증(필수 안전장치)
+    // - 선택 후 시간이 지나도(교체/조작/서버정책변경) 등록 단계에서 다시 막을 수 있음
+    if (imageItems.length > 0) {
+      try {
+        const picked = imageItems.map((x) => x.file);
+        // PENDING이면 기다리는게 맞으니 막는다
+        if (imageItems.some((x) => x.status === "PENDING")) {
+          alert("이미지 검사가 진행 중입니다. 잠시만 기다려주세요.");
+          return;
+        }
+
+        const results = await precheckImages(picked);
+
+        const refreshed = picked.map((f, idx) => {
+          const r = results[idx];
+          if (!r) return { file: f, status: "OK" };
+          if (r.allowed === true) return { file: f, status: "OK" };
+          return {
+            file: f,
+            status: "BLOCKED",
+            reasonCode: r.reasonCode || "OTHER",
+            reasonText: r.reasonText || "업로드 불가 이미지",
+          };
+        });
+
+        setImageItems(refreshed);
+
+        if (refreshed.some((x) => x.status === "BLOCKED")) {
+          const reasons = refreshed
+            .filter((x) => x.status === "BLOCKED")
+            .map((x) => x.reasonText || "업로드 불가 이미지")
+            .join("\n");
+          alert(`유해/상업적 이미지가 포함되어 업로드할 수 없습니다.\n\n${reasons}`);
+          return;
+        }
+      // eslint-disable-next-line no-unused-vars
+      } catch (e) {
+        alert("이미지 판별 서버 오류로 업로드를 진행할 수 없습니다.");
+        return;
+      }
+    }
+
     setLoading(true);
     setError("");
+
     try {
       const payload = {
         categoryId,
@@ -209,9 +336,11 @@ const BoardWrite = () => {
         postPassword: form.secretYn === "Y" ? form.postPassword : null,
       };
 
+      // ✅ 여기부터 글 등록 진행(이미지 검증 통과한 상태)
       const res = await axiosInstance.post("/api/board/posts", payload);
       const saved = res.data;
 
+      // 첨부파일 업로드(실패해도 글은 유지)
       try {
         if (activeCategory?.fileYn === "Y") {
           await uploadFiles(saved.boardId);
@@ -221,6 +350,7 @@ const BoardWrite = () => {
         alert("글은 등록됐지만 첨부파일 업로드에 실패했습니다. (수정에서 다시 올리세요)");
       }
 
+      // 이미지 업로드(OK 이미지만)
       try {
         const uploadedPhotos = await uploadImages(saved.boardId);
 
@@ -281,17 +411,20 @@ const BoardWrite = () => {
             />
           </div>
 
-          {/* AI 글써주기: 카테고리 정책이 Y일 때만 표시 */}
+          {/* AI 글써주기 */}
           {canUseAiWrite && (
             <div className="mb-3 p-3 rounded-4" style={{ background: "#fff7e6" }}>
               <div className="d-flex justify-content-between align-items-center flex-wrap gap-2">
                 <div>
                   <div className="fw-semibold">AI 글써주기</div>
-                  <div className="text-secondary small">
-                    제목/내용에 적어둔 키워드 기반으로 초안을 다듬어줍니다.
-                  </div>
+                  <div className="text-secondary small">제목/내용에 적어둔 키워드 기반으로 초안을 다듬어줍니다.</div>
                 </div>
-                <button className="btn btn-outline-primary" type="button" onClick={onAiWrite} disabled={aiLoading || loading}>
+                <button
+                  className="btn btn-outline-primary"
+                  type="button"
+                  onClick={onAiWrite}
+                  disabled={aiLoading || loading}
+                >
                   {aiLoading ? "생성중..." : "초안 생성"}
                 </button>
               </div>
@@ -341,10 +474,17 @@ const BoardWrite = () => {
                 disabled={loading}
               />
 
-              {imageFiles.length > 0 && (
-                <div className="text-secondary small align-self-center">선택됨: {imageFiles.length}개</div>
+              {imageItems.length > 0 && (
+                <div className="text-secondary small align-self-center">선택됨: {imageItems.length}개</div>
               )}
             </div>
+
+            {/* ✅ 차단 이미지 안내(가시적으로) */}
+            {hasBlockedImage && (
+              <div className="alert alert-danger py-2">
+                유해/상업적 이미지가 포함되어 업로드할 수 없습니다. 이미지를 제거하거나 다른 이미지로 교체하세요.
+              </div>
+            )}
 
             <textarea
               className="form-control"
@@ -357,12 +497,18 @@ const BoardWrite = () => {
             />
           </div>
 
-          {imageFiles.length > 0 && (
+          {/* ✅ 이미지 목록 + 검사 상태/사유 표시 */}
+          {imageItems.length > 0 && (
             <div className="mt-2 d-flex flex-column gap-1 mb-3">
-              {imageFiles.map((f, idx) => (
+              {imageItems.map((it, idx) => (
                 <div key={idx} className="d-flex justify-content-between align-items-center border rounded p-2">
                   <div className="small">
-                    {f.name} <span className="text-secondary">({f.size} bytes)</span>
+                    {it.file.name} <span className="text-secondary">({it.file.size} bytes)</span>{" "}
+                    {it.status === "PENDING" && <span className="text-secondary">(검사중)</span>}
+                    {it.status === "OK" && <span className="text-success">(통과)</span>}
+                    {it.status === "BLOCKED" && (
+                      <span className="text-danger">(차단: {it.reasonText || "업로드 불가"})</span>
+                    )}
                   </div>
                   <button
                     type="button"
@@ -447,7 +593,20 @@ const BoardWrite = () => {
             <button className="btn btn-outline-secondary" onClick={() => navigate("/board")} disabled={loading}>
               취소
             </button>
-            <button className="btn btn-success" onClick={onSubmit} disabled={loading}>
+
+            {/* ✅ 검사중/차단이면 등록 자체가 안 되게 disable도 걸어둠(UX 강화) */}
+            <button
+              className="btn btn-success"
+              onClick={onSubmit}
+              disabled={loading || imageItems.some((x) => x.status === "PENDING") || hasBlockedImage}
+              title={
+                imageItems.some((x) => x.status === "PENDING")
+                  ? "이미지 검사중입니다."
+                  : hasBlockedImage
+                  ? "차단된 이미지가 있어 등록할 수 없습니다."
+                  : ""
+              }
+            >
               등록
             </button>
           </div>
