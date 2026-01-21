@@ -32,14 +32,11 @@ import AdminWithDrawHistory from './components/admin/AdminWithDrawHistory';
 import AdminChangePwHistory from './components/admin/AdminChangePwHistory';
 import AdminUserUpdateHistory from './components/admin/AdminUserUpdateHistory';
 import AdminCateGory from './components/admin/AdminCateGory';
-<<<<<<< HEAD
 import AdminDocuments from './components/admin/AdminDocuments';
-=======
 import Board from './components/board/Board';
 import BoardWrite from './components/board/BoardWrite';
 import BoardEdit from './components/board/BoardEdit';
 import BoardRead from './components/board/BoardRead';
->>>>>>> cc1746b3243f861d66644b77efa578973b95572d
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {

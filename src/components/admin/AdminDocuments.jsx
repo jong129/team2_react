@@ -28,7 +28,7 @@ function typeBadgeStyle(docType) {
     case "BUILDING":
       return "text-bg-secondary";
     case "CONTRACT":
-      return "text-bg-primary";
+      return "text-bg-primary"; 
     default:
       return "text-bg-light";
   }
@@ -114,43 +114,40 @@ export default function AdminDocuments() {
    * 2) selected.imageUrl / selected.image_url (절대/상대 URL)
    * 3) selected.filePath (윈도우 절대경로일 수도 있으니 파일명만 뽑아서 /files/{filename})
    */
-const imageSrc = useMemo(() => {
-  if (!selected) return "";
+  const imageSrc = useMemo(() => {
+    if (!selected) return "";
 
-  const base =
-    (import.meta.env.VITE_API_BASE_URL || axiosInstance?.defaults?.baseURL || "").replace(/\/+$/, "");
+    const base =
+      (import.meta.env.VITE_API_BASE_URL || axiosInstance?.defaults?.baseURL || "").replace(/\/+$/, "");
 
-  const imagePath = selected.imagePath ?? selected.image_path ?? null;
-  const imageUrl = selected.imageUrl ?? selected.image_url ?? null;
+    const imagePath = selected.imagePath ?? selected.image_path ?? null;
+    const imageUrl = selected.imageUrl ?? selected.image_url ?? null;
 
-  let raw = "";
+    let raw = "";
 
-  if (imagePath) raw = imagePath;          // 보통 "/files/제너스빌_302호_3.jpg" 또는 "/files/%EC..."
-  else if (imageUrl) raw = imageUrl;       // "http://..." 또는 "/files/..."
-  else if (selected.filePath) {
-    const filename = getFilenameFromPath(selected.filePath);
-    if (filename) raw = `/files/${filename}`;
-  }
+    if (imagePath) raw = imagePath;          // 보통 "/files/제너스빌_302호_3.jpg" 또는 "/files/%EC..."
+    else if (imageUrl) raw = imageUrl;       // "http://..." 또는 "/files/..."
+    else if (selected.filePath) {
+      const filename = getFilenameFromPath(selected.filePath);
+      if (filename) raw = `/files/${filename}`;
+    }
 
-  if (!raw) return "";
+    if (!raw) return "";
 
-  // base 붙이기 (raw가 절대 URL이면 그대로)
-  const full =
-    raw.startsWith("http://") || raw.startsWith("https://")
-      ? raw
-      : raw.startsWith("/")
-      ? `${base}${raw}`
-      : `${base}/${raw}`;
+    // base 붙이기 (raw가 절대 URL이면 그대로)
+    const full =
+      raw.startsWith("http://") || raw.startsWith("https://")
+        ? raw
+        : raw.startsWith("/")
+          ? `${base}${raw}`
+          : `${base}/${raw}`;
 
-  // ✅ 핵심: 이미 인코딩된("%") 경로면 다시 encode 하지 않는다 (double-encoding 방지)
-  const safe = full.includes("%") ? full : encodeURI(full);
+    // ✅ 핵심: 이미 인코딩된("%") 경로면 다시 encode 하지 않는다 (double-encoding 방지)
+    const safe = full.includes("%") ? full : encodeURI(full);
 
-  return `${safe}?t=${selected.docId ?? Date.now()}`;
-}, [selected]);
+    return `${safe}?t=${selected.docId ?? Date.now()}`;
+  }, [selected]);
 
-  useEffect(() => {
-  console.log("[AdminDocuments] imageSrc =", imageSrc);
-}, [imageSrc]);
 
   const fetchDocs = async () => {
     if (!userId) {
@@ -207,15 +204,15 @@ const imageSrc = useMemo(() => {
         prev.map((d) =>
           d.docId === selected.docId
             ? {
-                ...d,
-                reportId: null,
-                policyVersion: null,
-                riskScore: null,
-                reasonsJson: "[]",
-                parsedJson: "{}",
-                aiExplanation: null,
-                reportCreatedAt: null,
-              }
+              ...d,
+              reportId: null,
+              policyVersion: null,
+              riskScore: null,
+              reasonsJson: "[]",
+              parsedJson: "{}",
+              aiExplanation: null,
+              reportCreatedAt: null,
+            }
             : d
         )
       );
@@ -357,9 +354,8 @@ const imageSrc = useMemo(() => {
                     <button
                       key={d.docId}
                       type="button"
-                      className={`border rounded-4 p-3 text-start ${
-                        active ? "border-success" : "border-light"
-                      }`}
+                      className={`border rounded-4 p-3 text-start ${active ? "border-success" : "border-light"
+                        }`}
                       style={{
                         background: active ? "#ecfdf5" : "white",
                         boxShadow: active ? "0 0 0 0 rgba(0,0,0,0)" : "0 1px 8px rgba(0,0,0,0.06)",
