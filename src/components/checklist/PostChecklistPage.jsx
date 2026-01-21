@@ -24,17 +24,26 @@ export default function PostChecklistPage() {
 
   const memberId = Number(localStorage.getItem("loginMemberId")) || 0;
 
-  // ✅ 들어온 sessionId는 숫자로 강제
-  const incomingSessionIdRaw = location?.state?.sessionId ?? null;
-  const incomingSessionId = incomingSessionIdRaw != null ? Number(incomingSessionIdRaw) : null;
+  // ✅ PRE 완료 후 최초 진입 시 전달됨
+  const incomingPreSessionId = location?.state?.preSessionId ?? null;
+
+  // ✅ 이미 생성된 POST 세션 재진입 시 사용
+  const incomingPostSessionId = location?.state?.postSessionId ?? null;
 
   // ✅ 응답 포맷이 {data:{...}}든 {...}든 안전하게 언랩
   const unwrap = (res) => res?.data?.data ?? res?.data ?? null;
 
-  const startPostSession = async (mid) => {
-    const res = await axiosInstance.post("/checklists/post/session/start", null, {
-      params: { memberId: mid },
-    });
+  const startPostSession = async (mid, preSessionId) => {
+    const res = await axiosInstance.post(
+      "/checklists/post/session/start",
+      null,
+      {
+        params: {
+          memberId: mid,
+          preSessionId, // ✅ 반드시 전달
+        },
+      }
+    );
     return unwrap(res);
   };
 
@@ -98,21 +107,43 @@ export default function PostChecklistPage() {
 
         if (!memberId) {
           alert("로그인이 필요합니다.");
-          navigate("/member_login");
+          navigate("/login");
           return;
         }
 
-        // 1) session 결정
         let sess;
-        if (incomingSessionId && !Number.isNaN(incomingSessionId)) {
-          sess = { sessionId: incomingSessionId };
+
+        // 🚫 PRE/POST 기준 없이 직접 접근한 경우 차단
+        if (!incomingPreSessionId && !incomingPostSessionId) {
+          setError("잘못된 접근입니다. 사전 체크리스트 완료 후 진입해주세요.");
+          setLoading(false);
+          return;
+        }
+
+        // 1️⃣ 이미 생성된 POST 세션으로 재진입 (히스토리 / 새로고침)
+        if (incomingPostSessionId) {
+          sess = { sessionId: Number(incomingPostSessionId) };
+
+          // 2️⃣ PRE 완료 후 최초 진입 → POST 세션 생성
         } else {
-          const created = await startPostSession(memberId);
-          if (!created?.sessionId) throw new Error("POST 세션 생성 응답에 sessionId가 없습니다.");
+          const created = await startPostSession(
+            memberId,
+            incomingPreSessionId // ✅ PRE 기준 명확
+          );
+
+          if (!created?.sessionId) {
+            throw new Error("POST 세션 생성 응답에 sessionId가 없습니다.");
+          }
+
           sess = { sessionId: Number(created.sessionId) };
 
-          // ✅ 새 세션이면 state에 고정(새로고침/뒤로가기 꼬임 방지)
-          navigate(location.pathname, { replace: true, state: { sessionId: sess.sessionId } });
+          // ✅ POST 세션 ID를 state에 고정
+          navigate(location.pathname, {
+            replace: true,
+            state: {
+              postSessionId: sess.sessionId,
+            },
+          });
         }
 
         if (!alive) return;
@@ -156,7 +187,7 @@ export default function PostChecklistPage() {
       alive = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberId, incomingSessionId]);
+  }, [memberId, incomingPreSessionId, incomingPostSessionId]);
 
   const progress = useMemo(() => {
     const total = data?.items?.length ?? 0;
@@ -290,6 +321,19 @@ export default function PostChecklistPage() {
           </div>
         </div>
       </nav>
+
+      {data?.postGroupCode && (
+        <div className="mb-3 text-center">
+          <span className={`badge rounded-pill px-3 py-2 ${data.postGroupCode === "POST_B"
+            ? "bg-danger"
+            : "bg-success"
+            }`}>
+            {data.postGroupCode === "POST_B"
+              ? "⚠️ 위험 점검 사후 체크리스트"
+              : "✅ 일반 사후 체크리스트"}
+          </span>
+        </div>
+      )}
 
       <section className="py-5 bg-white">
         <div className="container">

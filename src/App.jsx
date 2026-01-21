@@ -10,8 +10,8 @@ import PostChecklistPage from "./components/checklist/PostChecklistPage";
 import AdminChecklistManage from "./components/checklist/AdminChecklistManage";
 import AdminChecklistTemplatesPage from "./components/checklist/AdminChecklistTemplatesPage";
 import AdminChecklistTemplateEditPage from "./components/checklist/AdminChecklistTemplateEditPage";
-import AdminChecklistTemplateCreatePage from "./components/checklist/AdminChecklistTemplateCreatePage";
 import AdminPostChecklistAiPanel from "./components/checklist/AdminPostChecklistAiPanel";
+import AdminPostChecklistAiImprovePage from './components/checklist/AdminPostChecklistAiImprovePage';
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
@@ -67,8 +67,8 @@ function App() {
           <Route path="/admin/checklist" element={<AdminChecklistManage />} />
           <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
           <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
-          <Route path="/admin/checklists/templates/new" element={<AdminChecklistTemplateCreatePage />} />
           <Route path="/admin/ai/post" element={<AdminPostChecklistAiPanel />} />
+          <Route path="/admin/ai/post/improve/:templateId" element={<AdminPostChecklistAiImprovePage />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />

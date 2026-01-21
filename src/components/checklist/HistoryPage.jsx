@@ -7,6 +7,9 @@ export default function HistoryPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // ✅ POST 완료 직후 진입 여부 (삭제 버튼 제어용)
+  const justCompleted = location?.state?.justCompleted === true;
+
   const memberId = useMemo(() => Number(localStorage.getItem("loginMemberId")), []);
 
   // ✅ PRE/POST 탭 (POST 완료 후 navigate state로 넘어오면 POST로 시작)
@@ -45,6 +48,9 @@ export default function HistoryPage() {
 
     return params;
   };
+
+  // ✅ 삭제 버튼 표시 가능 여부
+  const canDelete = !(phase === "POST" && justCompleted);
 
   // ✅ phase에 따라 history endpoint 변경
   const loadHistory = async () => {
@@ -96,7 +102,7 @@ export default function HistoryPage() {
 
       if (!memberId) {
         alert("로그인이 필요합니다.");
-        navigate("/member_login");
+        navigate("/login");
         return;
       }
 
@@ -117,8 +123,21 @@ export default function HistoryPage() {
 
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, phase]);
+  }, [page, phase, statusFilter, fromDate, toDate]);
+
+  const fmtKst = (v) => {
+    if (!v) return "-";
+
+    return new Date(v).toLocaleString("ko-KR", {
+      timeZone: "Asia/Seoul", // 한국 시간 고정
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+  };
 
   // 탭 변경하면 0페이지부터 다시
   const changePhase = (next) => {
@@ -127,9 +146,19 @@ export default function HistoryPage() {
   };
 
   const openSession = (sessionId) => {
-    if (phase === "PRE") navigate("/checklist/pre", { state: { sessionId } });
-    else navigate("/checklist/post", { state: { sessionId } }); // ✅ 너 라우트에 맞게 수정
+    if (phase === "PRE") {
+      navigate("/checklist/pre", {
+        state: { sessionId }, // PRE는 그대로
+      });
+    } else {
+      navigate("/checklist/post", {
+        state: {
+          postSessionId: sessionId, // ✅ 핵심
+        },
+      });
+    }
   };
+
 
   const fmt = (v) => {
     if (!v) return "-";
@@ -193,23 +222,28 @@ export default function HistoryPage() {
   };
 
   const handleDelete = async (sessionId) => {
-    if (!window.confirm("이 기록을 삭제할까요?")) return;
+    const msg =
+      phase === "POST"
+        ? "사후 체크리스트 기록을 삭제하면 복구할 수 없습니다.\n정말 삭제할까요?"
+        : "이 기록을 삭제할까요?";
+
+    if (!window.confirm(msg)) return;
+
+    // 2차 확인
+    if (phase === "POST") {
+      const ok = window.confirm("다시 한 번 확인합니다. 정말 삭제하시겠습니까?");
+      if (!ok) return;
+    }
 
     try {
       setBusyId(sessionId);
       await deleteSession(sessionId);
       await refresh();
-    } catch (e) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data ||
-        e?.message ||
-        "삭제 처리 중 오류";
-      alert(String(msg));
     } finally {
       setBusyId(null);
     }
   };
+
 
   const title = phase === "PRE" ? "사전 체크 기록보기" : "사후 체크 기록보기";
   const header = phase === "PRE" ? "내 사전 체크리스트 기록" : "내 사후 체크리스트 기록";
@@ -364,8 +398,14 @@ export default function HistoryPage() {
                                 {completed ? "완료" : "진행중"}
                               </span>
                             </td>
-                            <td className="small">{fmt(it.startedAt)}</td>
-                            <td className="small">{fmt(it.completedAt)}</td>
+                            <td className="small">
+                              {/* 시작 시각을 한국 시간(KST) 기준으로 표시 */}
+                              {fmtKst(it.startedAt)}
+                            </td>
+                            <td className="small">
+                              {/* 완료 시각을 한국 시간(KST) 기준으로 표시 */}
+                              {fmtKst(it.completedAt)}
+                            </td>
                             <td className="text-end">
                               <div className="d-flex justify-content-end gap-2 flex-wrap">
                                 <button
@@ -388,14 +428,17 @@ export default function HistoryPage() {
                                   </button>
                                 )}
 
-                                <button
-                                  className="btn btn-sm btn-outline-danger rounded-pill"
-                                  onClick={() => handleDelete(it.sessionId)}
-                                  disabled={isBusy}
-                                >
-                                  <Trash2 size={16} className="me-1" />
-                                  삭제
-                                </button>
+                                {canDelete && (
+                                  <button
+                                    className="btn btn-sm btn-outline-danger rounded-pill"
+                                    onClick={() => handleDelete(it.sessionId)}
+                                    disabled={isBusy}
+                                  >
+                                    <Trash2 size={16} className="me-1" />
+                                    삭제
+                                  </button>
+                                )}
+
                               </div>
                             </td>
                           </tr>

@@ -1,9 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, PlusCircle, Settings } from "lucide-react";
 
 const AdminChecklistManage = () => {
   const navigate = useNavigate();
+
+  /* =========================
+ * ✅ 로그인 체크
+ * ========================= */
+  useEffect(() => {
+    const memberId = Number(localStorage.getItem("loginMemberId")) || 0;
+
+    if (!memberId) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+    }
+  }, [navigate]);
 
   return (
     <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -31,23 +43,6 @@ const AdminChecklistManage = () => {
               onClick={() => navigate("/admin/checklists/templates")}
             >
               템플릿 목록
-            </button>
-          </div>
-        </div>
-
-        {/* 항목 관리 */}
-        <div className="col-md-4">
-          <div className="border rounded-4 p-4 shadow-sm h-100">
-            <Settings size={32} className="mb-3" color="#059669" />
-            <h5 className="fw-bold">항목 관리</h5>
-            <p className="text-secondary small">체크리스트 항목 등록 / 수정 / 비활성화</p>
-            <button
-              className="btn btn-sm btn-success"
-              onClick={() => navigate("/admin/checklists/items")}
-              disabled
-              title="다음 단계에서 구현"
-            >
-              항목 관리
             </button>
           </div>
         </div>
