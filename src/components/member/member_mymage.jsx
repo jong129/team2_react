@@ -1,7 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import { User, Settings, KeyRound, RefreshCw, ShieldCheck } from "lucide-react";
+import {
+  User,
+  Settings,
+  KeyRound,
+  RefreshCw,
+  ShieldCheck,
+  MessageSquareText,
+  ArrowLeft,
+} from "lucide-react";
 
 const Member_Mypage = () => {
   const navigate = useNavigate();
@@ -33,17 +41,28 @@ const Member_Mypage = () => {
   return (
     <div className="bg-white" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <div className="container py-5" style={{ maxWidth: 980 }}>
-
         {/* 상단 헤더 */}
         <div className="d-flex align-items-center justify-content-between mb-4">
-          <div>
-            <div className="fw-bold" style={{ color: "#059669" }}>
-              <User className="me-2" size={20} />
-              마이페이지
-            </div>
-            <h2 className="fw-extrabold mb-0">내 정보 / 설정</h2>
-            <div className="text-secondary small mt-1">
-              계정 정보 확인 및 개인 설정을 관리합니다.
+          <div className="d-flex align-items-center gap-3">
+            {/* ✅ 뒤로가기(무조건 홈) */}
+            <button
+              type="button"
+              className="btn btn-light rounded-circle d-flex align-items-center justify-content-center"
+              style={{ width: 40, height: 40 }}
+              onClick={() => navigate("/")}
+            >
+              <ArrowLeft size={18} />
+            </button>
+
+            <div>
+              <div className="fw-bold" style={{ color: "#059669" }}>
+                <User className="me-2" size={20} />
+                마이페이지
+              </div>
+              <h2 className="fw-extrabold mb-0">내 정보 / 설정</h2>
+              <div className="text-secondary small mt-1">
+                계정 정보 확인 및 개인 설정을 관리합니다.
+              </div>
             </div>
           </div>
 
@@ -80,6 +99,15 @@ const Member_Mypage = () => {
             <KeyRound size={18} className="me-2" />
             비밀번호 변경
           </button>
+
+          {/* ✅ 추가: 1:1 문의 */}
+          <button
+            className="btn btn-outline-emerald rounded-pill px-4 fw-bold"
+            onClick={() => navigate("/member/inquiries")}
+          >
+            <MessageSquareText size={18} className="me-2" />
+            1:1 문의
+          </button>
         </div>
 
         {/* 상태 메시지 */}
@@ -89,11 +117,7 @@ const Member_Mypage = () => {
           </div>
         )}
 
-        {error && (
-          <div className="alert alert-danger rounded-4 shadow-sm">
-            {error}
-          </div>
-        )}
+        {error && <div className="alert alert-danger rounded-4 shadow-sm">{error}</div>}
 
         {/* 본문 */}
         {!loading && me && (
@@ -102,17 +126,22 @@ const Member_Mypage = () => {
               <div className="card border-0 shadow-sm rounded-5 p-4">
                 <div className="d-flex align-items-center justify-content-between mb-3">
                   <h5 className="fw-bold mb-0">
-                    <ShieldCheck size={20} className="me-2" style={{ color: "#059669" }} />
+                    <ShieldCheck
+                      size={20}
+                      className="me-2"
+                      style={{ color: "#059669" }}
+                    />
                     내 계정 정보
                   </h5>
-
                 </div>
 
                 <div className="table-responsive">
                   <table className="table align-middle mb-0">
                     <tbody>
                       <tr>
-                        <th className="text-secondary" style={{ width: 180 }}>회원번호</th>
+                        <th className="text-secondary" style={{ width: 180 }}>
+                          회원번호
+                        </th>
                         <td className="fw-semibold">{me.memberId}</td>
                       </tr>
                       <tr>
@@ -134,7 +163,6 @@ const Member_Mypage = () => {
                     </tbody>
                   </table>
                 </div>
-
               </div>
             </div>
 
@@ -159,14 +187,25 @@ const Member_Mypage = () => {
                   >
                     비밀번호 변경
                   </button>
+
+                  {/* ✅ 추가: 1:1 문의 */}
+                  <button
+                    className="btn btn-outline-emerald rounded-pill fw-bold"
+                    onClick={() => navigate("/member/inquiries")}
+                  >
+                    1:1 문의
+                  </button>
                 </div>
               </div>
 
-              <div className="card border-0 shadow-sm rounded-5 p-4 mt-4" style={{ backgroundColor: "#f0fdf4" }}>
-                <div className="fw-bold mb-1" style={{ color: "#059669" }}>안내</div>
-                <div className="text-secondary small">
-                  미기입
+              <div
+                className="card border-0 shadow-sm rounded-5 p-4 mt-4"
+                style={{ backgroundColor: "#f0fdf4" }}
+              >
+                <div className="fw-bold mb-1" style={{ color: "#059669" }}>
+                  안내
                 </div>
+                <div className="text-secondary small">미기입</div>
               </div>
             </div>
           </div>

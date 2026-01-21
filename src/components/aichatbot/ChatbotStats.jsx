@@ -1,31 +1,27 @@
 // src/components/aichatbot/ChatbotStats.jsx
 import React, { useEffect, useMemo, useState } from "react";
+import { RefreshCcw, Ban, CheckCircle2, Wand2, BarChart3, ThumbsUp, ThumbsDown, Cpu, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import {
-  RefreshCcw,
-  Ban,
-  CheckCircle2,
-  Wand2,
-  BarChart3,
-  ThumbsUp,
-  ThumbsDown,
-  Cpu,
-} from "lucide-react";
 import "./ChatbotStats.css";
 
 export default function ChatbotStats() {
-  const [tab, setTab] = useState("feedbackstats"); // blocked | autoblock | chunkstats | feedbackstats | usagestats
+  const navigate = useNavigate();
+
+  // tab : 현재 탭 (feedbackstats | usagestats | blocked | autoblock | chunkstats)
+  const [tab, setTab] = useState("feedbackstats");
+  // busy, err : API 호출 중/에러 표시 
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState(null);
 
   // -----------------------
-  // 차단 목록
+  // 차단 목록 탭 (blocked)
   // -----------------------
-  const [activeOnly, setActiveOnly] = useState(true);
-  const [blockedList, setBlockedList] = useState([]);
-  const [q, setQ] = useState("");
+  const [activeOnly, setActiveOnly] = useState(true); // 활성 차단만 볼지 / 해제된 것도 볼지
+  const [blockedList, setBlockedList] = useState([]); // 서버에서 받아온 차단 리스트
+  const [q, setQ] = useState(""); // chunkId / 사유 검색어
 
-  const filteredBlockedList = useMemo(() => {
+  const filteredBlockedList = useMemo(() => { // blockedList를 q로 필터링한 결과(useMemo)
     if (!q.trim()) return blockedList;
     const needle = q.trim().toLowerCase();
     return blockedList.filter((x) => {
@@ -35,6 +31,7 @@ export default function ChatbotStats() {
     });
   }, [blockedList, q]);
 
+  // /api/chat/rag/blocked-chunks?active=true|false GET : 목록 조회
   const loadBlocked = async () => {
     setBusy(true);
     setErr(null);
@@ -51,10 +48,10 @@ export default function ChatbotStats() {
     }
   };
 
-  // 단건 차단
   const [blockChunkId, setBlockChunkId] = useState("");
   const [blockReason, setBlockReason] = useState("");
 
+  // /api/chat/rag/blocked-chunks POST : 단건 차단 등록(upsert)
   const onBlock = async () => {
     const cid = Number(blockChunkId);
     if (!cid || Number.isNaN(cid)) return alert("chunkId를 숫자로 입력하세요.");
@@ -76,6 +73,7 @@ export default function ChatbotStats() {
     }
   };
 
+  // /api/chat/rag/blocked-chunks/unblock/{chunkId} POST : 차단 해제
   const onUnblock = async (chunkId) => {
     if (!window.confirm(`chunkId=${chunkId} 차단을 해제할까요?`)) return;
 
@@ -92,14 +90,17 @@ export default function ChatbotStats() {
   };
 
   // -----------------------
-  // 자동 차단
+  // 자동 차단 탭(autoblock)
   // -----------------------
+  // 자동 차단 조건
   const [autoDays, setAutoDays] = useState(30);
   const [autoTop, setAutoTop] = useState(20);
   const [autoBadN, setAutoBadN] = useState(3);
   const [autoReason, setAutoReason] = useState("");
+  // 실행 결과 (후보/차단된 개수 등)
   const [autoRes, setAutoRes] = useState(null);
 
+  // /api/chat/rag/blocked-chunks/auto-block/all?days=&top=&badN=&reason= POST : 자동 차단 실행
   const runAutoBlock = async () => {
     setBusy(true);
     setErr(null);
@@ -107,7 +108,6 @@ export default function ChatbotStats() {
 
     try {
       const url = "/api/chat/rag/blocked-chunks/auto-block/all";
-
       const res = await axiosInstance.post(url, null, {
         params: {
           days: autoDays,
@@ -127,12 +127,13 @@ export default function ChatbotStats() {
   };
 
   // -----------------------
-  // Chunk(근거) 품질 통계
+  // 근거 통계 탭 (chunkstats)
   // -----------------------
   const [statsDays, setStatsDays] = useState(30);
   const [statsTop, setStatsTop] = useState(10);
   const [refStats, setRefStats] = useState(null);
 
+  // /api/chat/refs/stats/all?days=&top= GET : top chunk, 평균 점수 등
   const loadRefStats = async () => {
     setBusy(true);
     setErr(null);
@@ -150,12 +151,13 @@ export default function ChatbotStats() {
   };
 
   // -----------------------
-  // 피드백 통계 (좋아요/싫어요)
+  // 피드백 통계 탭 (feedbackstats)
   // -----------------------
   const [fbDays, setFbDays] = useState(30);
   const [fbTop, setFbTop] = useState(10);
   const [fbStats, setFbStats] = useState(null);
 
+  // /api/admin/stats/feedback?days=&top= GET : 모델별 좋아요/싫어요, 싫어요 TOP 메시지
   const loadFeedbackStats = async () => {
     setBusy(true);
     setErr(null);
@@ -173,11 +175,12 @@ export default function ChatbotStats() {
   };
 
   // -----------------------
-  // ✅ 토큰/지연 통계
+  // 토큰/지연 통계 탭 (usagestats)
   // -----------------------
   const [usageDays, setUsageDays] = useState(30);
   const [usageStats, setUsageStats] = useState(null);
 
+  // /api/admin/stats/usage?days= GET : 없으면 404 처리 
   const loadUsageStats = async () => {
     setBusy(true);
     setErr(null);
@@ -189,10 +192,9 @@ export default function ChatbotStats() {
     } catch (e) {
       setUsageStats(null);
       setErr(
-        `토큰 통계 불러오기 실패: ${
-          e?.response?.status === 404
-            ? "API가 아직 없습니다. (GET /api/admin/stats/usage)"
-            : e?.message ?? e
+        `토큰 통계 불러오기 실패: ${e?.response?.status === 404
+          ? "API가 아직 없습니다. (GET /api/admin/stats/usage)"
+          : e?.message ?? e
         }`
       );
     } finally {
@@ -200,7 +202,7 @@ export default function ChatbotStats() {
     }
   };
 
-  // 탭 진입 시 자동 로드
+  // 탭 진입 시 자동 로드(차단 관리만)
   useEffect(() => {
     if (tab === "blocked") loadBlocked();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -219,93 +221,81 @@ export default function ChatbotStats() {
   const fmtScore = (v) => (v == null ? "-" : Number(v).toFixed(4));
 
   return (
-    <div className="container py-4">
-      <div className="d-flex align-items-center justify-content-between mb-3">
-        <div>
-          <h4 className="mb-0 fw-bold">챗봇 운영자 콘솔</h4>
-          <div className="text-muted small">
-            피드백 통계 · 토큰 통계 · 차단 관리 · 자동 차단 · 근거(Chunk) 품질 통계
+    <div className="cbs-page">
+      <div className="cbs-container">
+        {/* Top */}
+        <div className="cbs-top">
+          <div>
+            <div className="cbs-title">챗봇 운영자 콘솔</div>
+            <div className="cbs-subtitle">
+              피드백 통계 · 토큰 통계 · 차단 관리 · 자동 차단 · 근거(Chunk) 품질 통계
+            </div>
+          </div>
+
+          <div className="cbs-top-actions">
+            <button
+              className="cbs-btn cbs-btn--outline"
+              onClick={() => navigate("/admin/dashboard")}
+              title="관리자 대시보드로"
+            >
+              <ArrowLeft size={16} />
+              대시보드
+            </button>
+
+            <button className="cbs-btn cbs-btn--outline" onClick={refreshTab} disabled={busy}>
+              <RefreshCcw size={16} className={busy ? "cbs-spin" : ""} />
+              현재 탭 새로고침
+            </button>
           </div>
         </div>
-        <button className="btn btn-outline-secondary" onClick={refreshTab} disabled={busy}>
-          <RefreshCcw size={16} className="me-2" />
-          현재 탭 새로고침
-        </button>
-      </div>
 
-      {err && <div className="alert alert-danger">{err}</div>}
+        {err && <div className="cbs-alert cbs-alert--danger">{err}</div>}
 
-      {/* Tabs */}
-      <ul className="nav nav-tabs mb-3">
-        <li className="nav-item">
-          <button
-            className={`nav-link ${tab === "feedbackstats" ? "active" : ""}`}
-            onClick={() => setTab("feedbackstats")}
-          >
-            <ThumbsUp size={16} className="me-2" /> 피드백 통계(좋아요/싫어요)
+        {/* Tabs */}
+        <div className="cbs-tabs">
+          <button className={`cbs-tab ${tab === "feedbackstats" ? "is-active" : ""}`} onClick={() => setTab("feedbackstats")}>
+            <ThumbsUp size={16} /> 피드백 통계
           </button>
-        </li>
 
-        {/* ✅ NEW: 토큰 통계 탭 */}
-        <li className="nav-item">
-          <button
-            className={`nav-link ${tab === "usagestats" ? "active" : ""}`}
-            onClick={() => setTab("usagestats")}
-          >
-            <Cpu size={16} className="me-2" /> 토큰 통계(비용/지연)
+          <button className={`cbs-tab ${tab === "usagestats" ? "is-active" : ""}`} onClick={() => setTab("usagestats")}>
+            <Cpu size={16} /> 토큰 통계
           </button>
-        </li>
 
-        <li className="nav-item">
-          <button
-            className={`nav-link ${tab === "blocked" ? "active" : ""}`}
-            onClick={() => setTab("blocked")}
-          >
-            <Ban size={16} className="me-2" /> 차단 관리
+          <button className={`cbs-tab ${tab === "blocked" ? "is-active" : ""}`} onClick={() => setTab("blocked")}>
+            <Ban size={16} /> 차단 관리
           </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${tab === "autoblock" ? "active" : ""}`}
-            onClick={() => setTab("autoblock")}
-          >
-            <Wand2 size={16} className="me-2" /> 자동 차단(나쁜 답변 기반)
-          </button>
-        </li>
-        <li className="nav-item">
-          <button
-            className={`nav-link ${tab === "chunkstats" ? "active" : ""}`}
-            onClick={() => setTab("chunkstats")}
-          >
-            <BarChart3 size={16} className="me-2" /> 근거(Chunk) 품질 통계
-          </button>
-        </li>
-      </ul>
 
-      {/* ===========================
-          TAB: 토큰 통계
-      =========================== */}
-      {tab === "usagestats" && (
-        <div className="card shadow-sm">
-          <div className="card-body">
-            <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+          <button className={`cbs-tab ${tab === "autoblock" ? "is-active" : ""}`} onClick={() => setTab("autoblock")}>
+            <Wand2 size={16} /> 자동 차단
+          </button>
+
+          <button className={`cbs-tab ${tab === "chunkstats" ? "is-active" : ""}`} onClick={() => setTab("chunkstats")}>
+            <BarChart3 size={16} /> 근거 품질 통계
+          </button>
+        </div>
+
+        {/* ===========================
+            TAB: 토큰 통계
+        =========================== */}
+        {tab === "usagestats" && (
+          <div className="cbs-panel">
+            <div className="cbs-panel__top">
               <div>
-                <h6 className="fw-bold mb-1">토큰/지연 요약</h6>
-                <div className="text-muted small">
+                <div className="cbs-panel__title">토큰/지연 요약</div>
+                <div className="cbs-muted">
                   기간 내 총 토큰/평균 토큰/평균 지연, 모델별 분포를 확인합니다.
                 </div>
-                <div className="text-muted small mt-1">
-                  API: <span className="font-monospace">GET /api/admin/stats/usage?days=30</span>
+                <div className="cbs-muted">
+                  API: <span className="cbs-mono">GET /api/admin/stats/usage?days=30</span>
                 </div>
               </div>
 
-              <div className="d-flex flex-wrap gap-2 align-items-center">
-                <div className="d-flex gap-2 align-items-center">
-                  <span className="text-muted small">기간(일)</span>
+              <div className="cbs-controls">
+                <div className="cbs-field">
+                  <span className="cbs-field__label">기간(일)</span>
                   <input
                     type="number"
-                    className="form-control form-control-sm"
-                    style={{ width: 110 }}
+                    className="cbs-input"
                     value={usageDays}
                     min={1}
                     max={365}
@@ -313,61 +303,49 @@ export default function ChatbotStats() {
                   />
                 </div>
 
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={loadUsageStats}
-                  disabled={busy}
-                >
-                  <RefreshCcw size={16} className="me-2" /> 조회
+                <button className="cbs-btn cbs-btn--outline" onClick={loadUsageStats} disabled={busy}>
+                  <RefreshCcw size={16} className={busy ? "cbs-spin" : ""} /> 조회
                 </button>
               </div>
             </div>
 
             {!usageStats ? (
-              <div className="alert alert-info mb-0">
-                <div className="fw-bold mb-1">통계가 아직 없습니다.</div>
+              <div className="cbs-alert cbs-alert--info">
+                <div className="cbs-alert__title">통계가 아직 없습니다.</div>
                 조회 버튼을 눌러 토큰 통계를 불러오세요.
-                <div className="text-muted small mt-2">
+                <div className="cbs-muted" style={{ marginTop: 8 }}>
                   (백엔드 미구현이면 404가 뜹니다. 컨트롤러 1개만 추가하면 바로 연결돼요.)
                 </div>
               </div>
             ) : (
               <>
-                <div className="row g-2 mb-3">
-                  <div className="col-md-3">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">총 요청 수</div>
-                      <div className="fw-bold">{fmtInt(usageStats.totalRequests)}</div>
-                    </div>
+                <div className="cbs-kpi">
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">총 요청 수</div>
+                    <div className="cbs-kpi__value">{fmtInt(usageStats.totalRequests)}</div>
                   </div>
-                  <div className="col-md-3">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">총 토큰</div>
-                      <div className="fw-bold">{fmtInt(usageStats.totalTokens)}</div>
-                    </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">총 토큰</div>
+                    <div className="cbs-kpi__value">{fmtInt(usageStats.totalTokens)}</div>
                   </div>
-                  <div className="col-md-3">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">평균 토큰</div>
-                      <div className="fw-bold">{fmtFloat(usageStats.avgTokens, 1)}</div>
-                    </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">평균 토큰</div>
+                    <div className="cbs-kpi__value">{fmtFloat(usageStats.avgTokens, 1)}</div>
                   </div>
-                  <div className="col-md-3">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">평균 지연(ms)</div>
-                      <div className="fw-bold">{fmtFloat(usageStats.avgLatencyMs, 0)}</div>
-                    </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">평균 지연(ms)</div>
+                    <div className="cbs-kpi__value">{fmtFloat(usageStats.avgLatencyMs, 0)}</div>
                   </div>
                 </div>
 
-                <div className="d-flex align-items-center justify-content-between mb-2">
-                  <div className="fw-bold">모델별 토큰/지연</div>
-                  <div className="text-muted small">비용/성능 비교</div>
+                <div className="cbs-row cbs-row--between">
+                  <div className="cbs-section-title">모델별 토큰/지연</div>
+                  <div className="cbs-muted">비용/성능 비교</div>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="table table-sm align-middle">
-                    <thead className="table-light">
+                <div className="cbs-table-wrap">
+                  <table className="cbs-table">
+                    <thead>
                       <tr>
                         <th>모델</th>
                         <th style={{ width: 120 }}>요청 수</th>
@@ -379,14 +357,12 @@ export default function ChatbotStats() {
                     <tbody>
                       {(usageStats.byModel ?? []).length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center text-muted py-4">
-                            데이터 없음
-                          </td>
+                          <td colSpan={5} className="cbs-empty">데이터 없음</td>
                         </tr>
                       ) : (
                         (usageStats.byModel ?? []).map((r, i) => (
                           <tr key={`${r.model ?? "UNKNOWN"}-${i}`}>
-                            <td className="font-monospace">{r.model ?? "UNKNOWN"}</td>
+                            <td className="cbs-mono">{r.model ?? "UNKNOWN"}</td>
                             <td>{fmtInt(r.requests)}</td>
                             <td>{fmtInt(r.tokens)}</td>
                             <td>{fmtFloat(r.avgTokens, 1)}</td>
@@ -398,45 +374,40 @@ export default function ChatbotStats() {
                   </table>
                 </div>
 
-                <div className="alert alert-info mb-0 mt-3">
-                  <div className="fw-bold mb-1">해석 팁</div>
-                  <ul className="mb-0">
-                    <li>
-                      <b>총 토큰</b>이 많을수록 비용이 증가합니다.
-                    </li>
-                    <li>
-                      <b>평균 지연</b>이 높은 모델/프롬프트는 UX에 영향이 큽니다.
-                    </li>
-                    {/* <li>나중에 원하면 “세션/회원별 토큰”까지 drill-down도 쉽게 확장됩니다.</li> */}
+                <div className="cbs-alert cbs-alert--info" style={{ marginTop: 12 }}>
+                  <div className="cbs-alert__title">해석 팁</div>
+                  <ul className="cbs-ul">
+                    <li><b>총 토큰</b>이 많을수록 비용이 증가합니다.</li>
+                    <li><b>평균 지연</b>이 높은 모델/프롬프트는 UX에 영향이 큽니다.</li>
                   </ul>
                 </div>
               </>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ===========================
-          TAB: 피드백 통계
-      =========================== */}
-      {tab === "feedbackstats" && (
-        <div className="card shadow-sm">
-          <div className="card-body">
-            <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        {/* ===========================
+            TAB: 피드백 통계
+        =========================== */}
+        {tab === "feedbackstats" && (
+          <div className="cbs-panel">
+            <div className="cbs-panel__top">
               <div>
-                <h6 className="fw-bold mb-1">좋아요/싫어요 요약</h6>
-                <div className="text-muted small">
+                <div className="cbs-panel__title">좋아요/싫어요 요약</div>
+                <div className="cbs-muted">
                   기간 내 전체 반응 및 모델별 성능, 싫어요가 많은 메시지를 확인합니다.
+                </div>
+                <div className="cbs-muted">
+                  API: <span className="cbs-mono">GET /api/admin/stats/feedback</span>
                 </div>
               </div>
 
-              <div className="d-flex flex-wrap gap-2 align-items-center">
-                <div className="d-flex gap-2 align-items-center">
-                  <span className="text-muted small">기간(일)</span>
+              <div className="cbs-controls">
+                <div className="cbs-field">
+                  <span className="cbs-field__label">기간(일)</span>
                   <input
                     type="number"
-                    className="form-control form-control-sm"
-                    style={{ width: 110 }}
+                    className="cbs-input"
                     value={fbDays}
                     min={1}
                     max={365}
@@ -444,12 +415,11 @@ export default function ChatbotStats() {
                   />
                 </div>
 
-                <div className="d-flex gap-2 align-items-center">
-                  <span className="text-muted small">상위 N</span>
+                <div className="cbs-field">
+                  <span className="cbs-field__label">상위 N</span>
                   <input
                     type="number"
-                    className="form-control form-control-sm"
-                    style={{ width: 110 }}
+                    className="cbs-input"
                     value={fbTop}
                     min={1}
                     max={50}
@@ -457,60 +427,45 @@ export default function ChatbotStats() {
                   />
                 </div>
 
-                <button
-                  className="btn btn-outline-secondary btn-sm"
-                  onClick={loadFeedbackStats}
-                  disabled={busy}
-                >
-                  <RefreshCcw size={16} className="me-2" /> 조회
+                <button className="cbs-btn cbs-btn--outline" onClick={loadFeedbackStats} disabled={busy}>
+                  <RefreshCcw size={16} className={busy ? "cbs-spin" : ""} /> 조회
                 </button>
               </div>
             </div>
 
             {!fbStats ? (
-              <div className="alert alert-info mb-0">
-                <div className="fw-bold mb-1">통계가 아직 없습니다.</div>
+              <div className="cbs-alert cbs-alert--info">
+                <div className="cbs-alert__title">통계가 아직 없습니다.</div>
                 조회 버튼을 눌러 통계를 불러오세요.
-                <div className="text-muted small mt-2">
-                  API: <span className="font-monospace">GET /api/admin/stats/feedback</span>
-                </div>
               </div>
             ) : (
               <>
-                <div className="row g-2 mb-3">
-                  <div className="col-md-4">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">
-                        <ThumbsUp size={14} className="me-1" /> 총 좋아요
-                      </div>
-                      <div className="fw-bold">{fmtInt(fbStats.totalLikes)}</div>
-                    </div>
+                <div className="cbs-kpi">
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label"><ThumbsUp size={14} /> 총 좋아요</div>
+                    <div className="cbs-kpi__value">{fmtInt(fbStats.totalLikes)}</div>
                   </div>
-                  <div className="col-md-4">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">
-                        <ThumbsDown size={14} className="me-1" /> 총 싫어요
-                      </div>
-                      <div className="fw-bold">{fmtInt(fbStats.totalDislikes)}</div>
-                    </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label"><ThumbsDown size={14} /> 총 싫어요</div>
+                    <div className="cbs-kpi__value">{fmtInt(fbStats.totalDislikes)}</div>
                   </div>
-                  <div className="col-md-4">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">순점수(좋아요-싫어요)</div>
-                      <div className="fw-bold">{fmtInt(fbStats.net)}</div>
-                    </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">순점수(좋아요-싫어요)</div>
+                    <div className="cbs-kpi__value">{fmtInt(fbStats.net)}</div>
                   </div>
                 </div>
 
-                <div className="row g-3">
-                  <div className="col-lg-6">
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                      <div className="fw-bold">모델별 반응</div>
-                      <div className="text-muted small">모델 품질 비교용</div>
+                <div className="cbs-grid-2">
+                  {/* left */}
+                  <div>
+                    <div className="cbs-row cbs-row--between">
+                      <div className="cbs-section-title">모델별 반응</div>
+                      <div className="cbs-muted">모델 품질 비교용</div>
                     </div>
-                    <div className="table-responsive">
-                      <table className="table table-sm align-middle">
-                        <thead className="table-light">
+
+                    <div className="cbs-table-wrap">
+                      <table className="cbs-table">
+                        <thead>
                           <tr>
                             <th>모델</th>
                             <th style={{ width: 90 }}>좋아요</th>
@@ -521,9 +476,7 @@ export default function ChatbotStats() {
                         <tbody>
                           {(fbStats.byModel ?? []).length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="text-center text-muted py-4">
-                                데이터 없음
-                              </td>
+                              <td colSpan={4} className="cbs-empty">데이터 없음</td>
                             </tr>
                           ) : (
                             (fbStats.byModel ?? []).map((r, i) => {
@@ -532,12 +485,10 @@ export default function ChatbotStats() {
                               const net = r.net ?? likes - dislikes;
                               return (
                                 <tr key={`${r.model ?? "UNKNOWN"}-${i}`}>
-                                  <td className="font-monospace">{r.model ?? "UNKNOWN"}</td>
+                                  <td className="cbs-mono">{r.model ?? "UNKNOWN"}</td>
                                   <td>{fmtInt(likes)}</td>
                                   <td>{fmtInt(dislikes)}</td>
-                                  <td className={net < 0 ? "text-danger fw-bold" : ""}>
-                                    {fmtInt(net)}
-                                  </td>
+                                  <td className={net < 0 ? "cbs-neg" : ""}>{fmtInt(net)}</td>
                                 </tr>
                               );
                             })
@@ -547,14 +498,16 @@ export default function ChatbotStats() {
                     </div>
                   </div>
 
-                  <div className="col-lg-6">
-                    <div className="d-flex align-items-center justify-content-between mb-2">
-                      <div className="fw-bold">싫어요 많은 답변 TOP</div>
-                      <div className="text-muted small">문제 답변 추적용</div>
+                  {/* right */}
+                  <div>
+                    <div className="cbs-row cbs-row--between">
+                      <div className="cbs-section-title">싫어요 많은 답변 TOP</div>
+                      <div className="cbs-muted">문제 답변 추적용</div>
                     </div>
-                    <div className="table-responsive">
-                      <table className="table table-sm align-middle">
-                        <thead className="table-light">
+
+                    <div className="cbs-table-wrap">
+                      <table className="cbs-table">
+                        <thead>
                           <tr>
                             <th>chatId</th>
                             <th>모델</th>
@@ -565,16 +518,14 @@ export default function ChatbotStats() {
                         <tbody>
                           {(fbStats.topDislikedMessages ?? []).length === 0 ? (
                             <tr>
-                              <td colSpan={4} className="text-center text-muted py-4">
-                                데이터 없음
-                              </td>
+                              <td colSpan={4} className="cbs-empty">데이터 없음</td>
                             </tr>
                           ) : (
                             (fbStats.topDislikedMessages ?? []).map((r) => (
                               <tr key={r.chatId}>
-                                <td className="font-monospace">{r.chatId}</td>
-                                <td className="font-monospace">{r.model ?? "-"}</td>
-                                <td className="text-danger fw-bold">{fmtInt(r.dislikes)}</td>
+                                <td className="cbs-mono">{r.chatId}</td>
+                                <td className="cbs-mono">{r.model ?? "-"}</td>
+                                <td className="cbs-bad">{fmtInt(r.dislikes)}</td>
                                 <td>{fmtInt(r.net)}</td>
                               </tr>
                             ))
@@ -583,15 +534,13 @@ export default function ChatbotStats() {
                       </table>
                     </div>
 
-                    <div className="alert alert-info mb-0">
-                      <div className="fw-bold mb-1">해석 팁</div>
+                    <div className="cbs-alert cbs-alert--info" style={{ marginTop: 12 }}>
+                      <div className="cbs-alert__title">해석 팁</div>
                       <div>
-                        순점수는 <b>좋아요 - 싫어요</b>입니다. 값이 낮을수록 사용자 만족도가 낮은
-                        답변/모델입니다.
+                        순점수는 <b>좋아요 - 싫어요</b>입니다. 값이 낮을수록 만족도가 낮은 답변/모델입니다.
                       </div>
-                      <div className="text-muted small mt-2">
-                        (추적 확장) top chatId로 근거(chunk)를 조회해서 “어떤 문서 조각이 문제인지”까지
-                        추적할 수 있습니다.
+                      <div className="cbs-muted" style={{ marginTop: 8 }}>
+                        (추적 확장) top chatId로 근거(chunk)를 조회해 “어떤 문서 조각이 문제인지”까지 추적할 수 있습니다.
                       </div>
                     </div>
                   </div>
@@ -599,309 +548,244 @@ export default function ChatbotStats() {
               </>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ===========================
-          TAB: 차단 관리
-      =========================== */}
-      {tab === "blocked" && (
-        <div className="row g-3">
-          <div className="col-lg-8">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <div className="d-flex flex-wrap gap-2 justify-content-between align-items-end mb-2">
-                  <div>
-                    <div className="btn-group">
-                      <button
-                        className={`btn btn-sm ${activeOnly ? "btn-danger" : "btn-outline-danger"}`}
-                        onClick={() => setActiveOnly(true)}
-                      >
-                        활성(차단중)
-                      </button>
-                      <button
-                        className={`btn btn-sm ${
-                          !activeOnly ? "btn-secondary" : "btn-outline-secondary"
-                        }`}
-                        onClick={() => setActiveOnly(false)}
-                      >
-                        해제됨
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="d-flex gap-2">
-                    <input
-                      className="form-control form-control-sm"
-                      style={{ width: 260 }}
-                      placeholder="chunkId 또는 사유 검색"
-                      value={q}
-                      onChange={(e) => setQ(e.target.value)}
-                    />
-                  </div>
+        {/* ===========================
+            TAB: 차단 관리
+        =========================== */}
+        {tab === "blocked" && (
+          <div className="cbs-grid-2 cbs-grid-2--wideLeft">
+            {/* left: list */}
+            <div className="cbs-panel">
+              <div className="cbs-panel__top">
+                <div>
+                  <div className="cbs-panel__title">차단 목록</div>
+                  <div className="cbs-muted">활성 차단된 chunkId는 RAG 검색 결과에서 제외됩니다.</div>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="table table-sm align-middle mb-0">
-                    <thead className="table-light">
-                      <tr>
-                        <th style={{ width: 90 }}>상태</th>
-                        <th style={{ width: 110 }}>blockId</th>
-                        <th style={{ width: 120 }}>chunkId</th>
-                        <th>사유</th>
-                        <th style={{ width: 170 }}>등록일</th>
-                        <th style={{ width: 120 }}>작업</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredBlockedList.length === 0 ? (
-                        <tr>
-                          <td colSpan={6} className="text-center text-muted py-4">
-                            데이터 없음
-                          </td>
-                        </tr>
-                      ) : (
-                        filteredBlockedList.map((r) => (
-                          <tr key={r.blockId ?? `${r.chunkId}-${r.createdAt}`}>
-                            <td>
-                              {Number(r.isActive) === 1 ? (
-                                <span className="badge text-bg-danger">차단</span>
-                              ) : (
-                                <span className="badge text-bg-secondary">해제</span>
-                              )}
-                            </td>
-                            <td>{r.blockId ?? "-"}</td>
-                            <td className="font-monospace">{r.chunkId}</td>
-                            <td title={r.reason ?? ""}>{r.reason ?? "-"}</td>
-                            <td className="text-muted">{String(r.createdAt ?? "-")}</td>
-                            <td>
-                              {Number(r.isActive) === 1 ? (
-                                <button
-                                  className="btn btn-sm btn-outline-success"
-                                  onClick={() => onUnblock(r.chunkId)}
-                                  disabled={busy}
-                                >
-                                  <CheckCircle2 size={16} className="me-1" /> 해제
-                                </button>
-                              ) : (
-                                <span className="text-muted">-</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+                <div className="cbs-controls">
+                  <div className="cbs-seg">
+                    <button
+                      className={`cbs-segbtn ${activeOnly ? "is-active is-danger" : ""}`}
+                      onClick={() => setActiveOnly(true)}
+                      disabled={busy}
+                    >
+                      활성(차단중)
+                    </button>
+                    <button
+                      className={`cbs-segbtn ${!activeOnly ? "is-active" : ""}`}
+                      onClick={() => setActiveOnly(false)}
+                      disabled={busy}
+                    >
+                      해제됨
+                    </button>
+                  </div>
 
-                <div className="alert alert-info mt-3 mb-0">
-                  <div className="fw-bold mb-1">안내</div>
-                  활성(차단)된 chunkId는 RAG 검색 결과에서 제외됩니다.
+                  <input
+                    className="cbs-input cbs-input--wide"
+                    placeholder="chunkId 또는 사유 검색"
+                    value={q}
+                    onChange={(e) => setQ(e.target.value)}
+                  />
                 </div>
               </div>
+
+              <div className="cbs-table-wrap">
+                <table className="cbs-table">
+                  <thead>
+                    <tr>
+                      <th style={{ width: 90 }}>상태</th>
+                      <th style={{ width: 110 }}>blockId</th>
+                      <th style={{ width: 120 }}>chunkId</th>
+                      <th>사유</th>
+                      <th style={{ width: 170 }}>등록일</th>
+                      <th style={{ width: 120 }}>작업</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredBlockedList.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="cbs-empty">데이터 없음</td>
+                      </tr>
+                    ) : (
+                      filteredBlockedList.map((r) => (
+                        <tr key={r.blockId ?? `${r.chunkId}-${r.createdAt}`}>
+                          <td>
+                            {Number(r.isActive) === 1 ? (
+                              <span className="cbs-badge cbs-badge--danger">차단</span>
+                            ) : (
+                              <span className="cbs-badge cbs-badge--muted">해제</span>
+                            )}
+                          </td>
+                          <td>{r.blockId ?? "-"}</td>
+                          <td className="cbs-mono">{r.chunkId}</td>
+                          <td title={r.reason ?? ""}>{r.reason ?? "-"}</td>
+                          <td className="cbs-muted">{String(r.createdAt ?? "-")}</td>
+                          <td>
+                            {Number(r.isActive) === 1 ? (
+                              <button className="cbs-btn cbs-btn--outline" onClick={() => onUnblock(r.chunkId)} disabled={busy}>
+                                <CheckCircle2 size={16} /> 해제
+                              </button>
+                            ) : (
+                              <span className="cbs-muted">-</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
             </div>
-          </div>
 
-          <div className="col-lg-4">
-            <div className="card shadow-sm">
-              <div className="card-body">
-                <h6 className="fw-bold mb-3">단건 차단 등록</h6>
+            {/* right: form */}
+            <div className="cbs-panel">
+              <div className="cbs-panel__top">
+                <div>
+                  <div className="cbs-panel__title">단건 차단 등록</div>
+                  <div className="cbs-muted">동일 chunkId는 Upsert(사유 갱신 + 활성화) 처리됩니다.</div>
+                </div>
+              </div>
 
-                <div className="mb-2">
-                  <label className="form-label small text-muted mb-1">chunkId</label>
+              <div className="cbs-form">
+                <div className="cbs-field">
+                  <div className="cbs-field__label">chunkId</div>
                   <input
-                    className="form-control form-control-sm font-monospace"
+                    className="cbs-input cbs-mono"
                     value={blockChunkId}
                     onChange={(e) => setBlockChunkId(e.target.value)}
                     placeholder="예: 123"
                   />
                 </div>
 
-                <div className="mb-3">
-                  <label className="form-label small text-muted mb-1">사유(선택)</label>
+                <div className="cbs-field">
+                  <div className="cbs-field__label">사유(선택)</div>
                   <input
-                    className="form-control form-control-sm"
+                    className="cbs-input"
                     value={blockReason}
                     onChange={(e) => setBlockReason(e.target.value)}
                     placeholder="예: 반복적으로 싫어요 발생"
                   />
                 </div>
 
-                <button className="btn btn-danger w-100" onClick={onBlock} disabled={busy}>
-                  <Ban size={16} className="me-2" /> 차단 등록
+                <button className="cbs-btn cbs-btn--danger" onClick={onBlock} disabled={busy}>
+                  <Ban size={16} /> 차단 등록
                 </button>
-
-                <div className="text-muted small mt-2">
-                  동일 chunkId는 Upsert(사유 갱신 + 활성화)로 처리됩니다.
-                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ===========================
-          TAB: 자동 차단
-      =========================== */}
-      {tab === "autoblock" && (
-        <div className="card shadow-sm">
-          <div className="card-body">
-            <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-2">
+        {/* ===========================
+            TAB: 자동 차단
+        =========================== */}
+        {tab === "autoblock" && (
+          <div className="cbs-panel">
+            <div className="cbs-panel__top">
               <div>
-                <h6 className="fw-bold mb-1">나쁜 답변 기반 자동 차단</h6>
-                <div className="text-muted small">
+                <div className="cbs-panel__title">나쁜 답변 기반 자동 차단</div>
+                <div className="cbs-muted">
                   싫어요가 많은 답변에서 반복 등장하는 chunkId를 찾아 자동으로 차단합니다.
                 </div>
               </div>
             </div>
 
-            <div className="d-flex flex-wrap gap-2 mb-3">
-              <div className="d-flex gap-2 align-items-center">
-                <span className="text-muted small">기간(일)</span>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  style={{ width: 110 }}
-                  value={autoDays}
-                  min={1}
-                  max={365}
-                  onChange={(e) => setAutoDays(Number(e.target.value))}
-                />
+            <div className="cbs-controls cbs-controls--wrap">
+              <div className="cbs-field">
+                <span className="cbs-field__label">기간(일)</span>
+                <input type="number" className="cbs-input" value={autoDays} min={1} max={365} onChange={(e) => setAutoDays(Number(e.target.value))} />
               </div>
 
-              <div className="d-flex gap-2 align-items-center">
-                <span className="text-muted small">상위 N</span>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  style={{ width: 110 }}
-                  value={autoTop}
-                  min={1}
-                  max={50}
-                  onChange={(e) => setAutoTop(Number(e.target.value))}
-                />
+              <div className="cbs-field">
+                <span className="cbs-field__label">상위 N</span>
+                <input type="number" className="cbs-input" value={autoTop} min={1} max={50} onChange={(e) => setAutoTop(Number(e.target.value))} />
               </div>
 
-              <div className="d-flex gap-2 align-items-center">
-                <span className="text-muted small">나쁜 기준(싫어요 ≥)</span>
-                <input
-                  type="number"
-                  className="form-control form-control-sm"
-                  style={{ width: 130 }}
-                  value={autoBadN}
-                  min={1}
-                  max={20}
-                  onChange={(e) => setAutoBadN(Number(e.target.value))}
-                />
+              <div className="cbs-field">
+                <span className="cbs-field__label">나쁜 기준(싫어요 ≥)</span>
+                <input type="number" className="cbs-input" value={autoBadN} min={1} max={20} onChange={(e) => setAutoBadN(Number(e.target.value))} />
               </div>
 
               <input
-                className="form-control form-control-sm"
-                style={{ minWidth: 260 }}
+                className="cbs-input cbs-input--wide"
                 placeholder="차단 사유(선택)"
                 value={autoReason}
                 onChange={(e) => setAutoReason(e.target.value)}
               />
 
-              <button className="btn btn-primary btn-sm" onClick={runAutoBlock} disabled={busy}>
-                <Wand2 size={16} className="me-2" /> 실행
+              <button className="cbs-btn cbs-btn--primary" onClick={runAutoBlock} disabled={busy}>
+                <Wand2 size={16} /> 실행
               </button>
             </div>
 
             {autoRes ? (
-              <div className="alert alert-success mb-0">
-                <div className="fw-bold">
+              <div className="cbs-alert cbs-alert--success">
+                <div className="cbs-alert__title">
                   후보 {fmtInt(autoRes.candidateCount)}개 중 {fmtInt(autoRes.blockedCount)}개 차단 처리 완료
                 </div>
-                <div className="small text-muted mt-1">사유: {autoRes.reason}</div>
+                <div className="cbs-muted">사유: {autoRes.reason}</div>
               </div>
             ) : (
-              <div className="alert alert-info mb-0">
-                <div className="fw-bold mb-1">안내</div>
+              <div className="cbs-alert cbs-alert--info">
+                <div className="cbs-alert__title">안내</div>
                 “나쁜 답변(싫어요 기준)”에 자주 등장하는 chunkId를 찾아 자동 차단합니다.
               </div>
             )}
           </div>
-        </div>
-      )}
+        )}
 
-      {/* ===========================
-          TAB: 근거(Chunk) 품질 통계
-      =========================== */}
-      {tab === "chunkstats" && (
-        <div className="card shadow-sm">
-          <div className="card-body">
-            <div className="d-flex flex-wrap gap-2 justify-content-between align-items-center mb-3">
+        {/* ===========================
+            TAB: 근거(Chunk) 품질 통계
+        =========================== */}
+        {tab === "chunkstats" && (
+          <div className="cbs-panel">
+            <div className="cbs-panel__top">
               <div>
-                <h6 className="fw-bold mb-1">근거(Chunk) 품질 통계</h6>
-                <div className="text-muted small">
+                <div className="cbs-panel__title">근거(Chunk) 품질 통계</div>
+                <div className="cbs-muted">
                   어떤 chunk가 자주 참조되는지, 유사도(점수)가 어떤지, 싫어요와 함께 문제가 되는지 확인합니다.
                 </div>
               </div>
 
-              <div className="d-flex flex-wrap gap-2 align-items-center">
-                <div className="d-flex gap-2 align-items-center">
-                  <span className="text-muted small">기간(일)</span>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    style={{ width: 110 }}
-                    value={statsDays}
-                    min={1}
-                    max={365}
-                    onChange={(e) => setStatsDays(Number(e.target.value))}
-                  />
+              <div className="cbs-controls">
+                <div className="cbs-field">
+                  <span className="cbs-field__label">기간(일)</span>
+                  <input type="number" className="cbs-input" value={statsDays} min={1} max={365} onChange={(e) => setStatsDays(Number(e.target.value))} />
                 </div>
-
-                <div className="d-flex gap-2 align-items-center">
-                  <span className="text-muted small">상위 N</span>
-                  <input
-                    type="number"
-                    className="form-control form-control-sm"
-                    style={{ width: 110 }}
-                    value={statsTop}
-                    min={1}
-                    max={50}
-                    onChange={(e) => setStatsTop(Number(e.target.value))}
-                  />
+                <div className="cbs-field">
+                  <span className="cbs-field__label">상위 N</span>
+                  <input type="number" className="cbs-input" value={statsTop} min={1} max={50} onChange={(e) => setStatsTop(Number(e.target.value))} />
                 </div>
-
-                <button className="btn btn-outline-secondary btn-sm" onClick={loadRefStats} disabled={busy}>
-                  <RefreshCcw size={16} className="me-2" /> 조회
+                <button className="cbs-btn cbs-btn--outline" onClick={loadRefStats} disabled={busy}>
+                  <RefreshCcw size={16} className={busy ? "cbs-spin" : ""} /> 조회
                 </button>
               </div>
             </div>
 
             {!refStats ? (
-              <div className="alert alert-info mb-0">조회 버튼을 눌러 통계를 불러오세요.</div>
+              <div className="cbs-alert cbs-alert--info">조회 버튼을 눌러 통계를 불러오세요.</div>
             ) : (
               <>
-                <div className="row g-2 mb-3">
-                  <div className="col-md-4">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">총 근거 참조 수</div>
-                      <div className="fw-bold">{fmtInt(refStats.totalRefs)}</div>
-                    </div>
+                <div className="cbs-kpi">
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">총 근거 참조 수</div>
+                    <div className="cbs-kpi__value">{fmtInt(refStats.totalRefs)}</div>
                   </div>
-                  <div className="col-md-4">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">평균 유사도 점수</div>
-                      <div className="fw-bold">{fmtScore(refStats.avgScore)}</div>
-                    </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">평균 유사도 점수</div>
+                    <div className="cbs-kpi__value">{fmtScore(refStats.avgScore)}</div>
                   </div>
-                  <div className="col-md-4">
-                    <div className="border rounded p-2">
-                      <div className="text-muted small">조회 범위</div>
-                      <div className="fw-bold">
-                        {refStats.scope === "MY" ? "내 데이터" : "전체"} · 최근 {fmtInt(refStats.days)}일
-                      </div>
+                  <div className="cbs-kpi__item">
+                    <div className="cbs-kpi__label">조회 범위</div>
+                    <div className="cbs-kpi__value">
+                      {refStats.scope === "MY" ? "내 데이터" : "전체"} · 최근 {fmtInt(refStats.days)}일
                     </div>
                   </div>
                 </div>
 
-                <div className="table-responsive">
-                  <table className="table table-sm align-middle mb-0">
-                    <thead className="table-light">
+                <div className="cbs-table-wrap">
+                  <table className="cbs-table">
+                    <thead>
                       <tr>
                         <th style={{ width: 140 }}>chunkId</th>
                         <th style={{ width: 120 }}>참조 횟수</th>
@@ -913,20 +797,18 @@ export default function ChatbotStats() {
                     <tbody>
                       {(refStats.topChunks ?? []).length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="text-center text-muted py-4">
-                            데이터 없음
-                          </td>
+                          <td colSpan={5} className="cbs-empty">데이터 없음</td>
                         </tr>
                       ) : (
                         (refStats.topChunks ?? []).map((r) => (
                           <tr key={r.chunkId}>
-                            <td className="font-monospace">{r.chunkId}</td>
+                            <td className="cbs-mono">{r.chunkId}</td>
                             <td>{fmtInt(r.count)}</td>
                             <td>{fmtScore(r.avgScore)}</td>
-                            <td className={Number(r.sumDislikes ?? 0) > 0 ? "text-danger fw-bold" : ""}>
+                            <td className={Number(r.sumDislikes ?? 0) > 0 ? "cbs-bad" : ""}>
                               {fmtInt(r.sumDislikes ?? 0)}
                             </td>
-                            <td className={Number(r.badAnswerCount ?? 0) > 0 ? "text-danger fw-bold" : ""}>
+                            <td className={Number(r.badAnswerCount ?? 0) > 0 ? "cbs-bad" : ""}>
                               {fmtInt(r.badAnswerCount ?? 0)}
                             </td>
                           </tr>
@@ -936,25 +818,19 @@ export default function ChatbotStats() {
                   </table>
                 </div>
 
-                <div className="alert alert-info mt-3 mb-0">
-                  <div className="fw-bold mb-1">해석 팁</div>
-                  <ul className="mb-0">
-                    <li>
-                      <b>참조 횟수</b>: 답변 생성 시 해당 chunk가 근거로 선택된 횟수
-                    </li>
-                    <li>
-                      <b>평균 점수</b>: 검색 유사도(높을수록 질문과 더 관련)
-                    </li>
-                    <li>
-                      <b>싫어요 합계 / 나쁜 답변 수</b>: “이 chunk를 쓴 답변들이 얼마나 불만을 받았는지” 추적 지표
-                    </li>
+                <div className="cbs-alert cbs-alert--info" style={{ marginTop: 12 }}>
+                  <div className="cbs-alert__title">해석 팁</div>
+                  <ul className="cbs-ul">
+                    <li><b>참조 횟수</b>: 답변 생성 시 해당 chunk가 근거로 선택된 횟수</li>
+                    <li><b>평균 점수</b>: 검색 유사도(높을수록 질문과 더 관련)</li>
+                    <li><b>싫어요 합계 / 나쁜 답변 수</b>: 이 chunk를 쓴 답변들이 얼마나 불만을 받았는지 추적</li>
                   </ul>
                 </div>
               </>
             )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
