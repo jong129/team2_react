@@ -33,8 +33,13 @@ const Document = () => {
       formData.append("userId", memberId);
       formData.append("docType", "UNKNOWN");
       formData.append("status", "UPLOADED");
+<<<<<<< HEAD
 //axiosInstance 바꾸기
       const res = await fetch("http://121.160.42.81:9093/documents/analyze", {
+=======
+
+      const res = await fetch("http://121.160.42.21:9093/documents/analyze", {
+>>>>>>> 155901c4881730128de4dcc08312bf571a3f149a
         method: "POST",
         body: formData,
       });

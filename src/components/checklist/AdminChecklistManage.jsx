@@ -1,9 +1,21 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { ClipboardList, PlusCircle, Settings } from "lucide-react";
 
 const AdminChecklistManage = () => {
   const navigate = useNavigate();
+
+  /* =========================
+ * ✅ 로그인 체크
+ * ========================= */
+  useEffect(() => {
+    const memberId = Number(localStorage.getItem("loginMemberId")) || 0;
+
+    if (!memberId) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+    }
+  }, [navigate]);
 
   return (
     <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -35,36 +47,19 @@ const AdminChecklistManage = () => {
           </div>
         </div>
 
-        {/* 항목 관리 */}
-        <div className="col-md-4">
-          <div className="border rounded-4 p-4 shadow-sm h-100">
-            <Settings size={32} className="mb-3" color="#059669" />
-            <h5 className="fw-bold">항목 관리</h5>
-            <p className="text-secondary small">체크리스트 항목 등록 / 수정 / 비활성화</p>
-            <button
-              className="btn btn-sm btn-success"
-              onClick={() => navigate("/admin/checklists/items")}
-              disabled
-              title="다음 단계에서 구현"
-            >
-              항목 관리
-            </button>
-          </div>
-        </div>
-
-        {/* 신규 생성 */}
+        {/* AI 사후 체크리스트 생성 */}
         <div className="col-md-4">
           <div className="border rounded-4 p-4 shadow-sm h-100">
             <PlusCircle size={32} className="mb-3" color="#059669" />
-            <h5 className="fw-bold">신규 생성</h5>
-            <p className="text-secondary small">새로운 체크리스트 템플릿 생성</p>
+            <h5 className="fw-bold">사후 체크리스트 AI 개선 엔진</h5>
+            <p className="text-secondary small">
+              실제 사용자 행동 데이터를 분석해, 개선이 필요한 사후 체크리스트 템플릿 초안을 AI가 생성합니다
+            </p>
             <button
-              className="btn btn-sm btn-outline-success"
-              onClick={() => navigate("/admin/checklists/templates/new")}
-              disabled
-              title="다음 단계에서 구현"
+              className="btn btn-sm btn-success"
+              onClick={() => navigate("/admin/ai/post")}
             >
-              새 템플릿 만들기
+              AI기반 템플릿 개선 보기
             </button>
           </div>
         </div>

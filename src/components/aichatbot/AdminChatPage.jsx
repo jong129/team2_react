@@ -1,30 +1,29 @@
+// src/components/aichatbot/AdminChatPage.jsx
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import {
-  Search,
-  Trash2,
-  RefreshCcw,
-  RotateCcw,
-  ShieldAlert,
-  MessageSquareText,
-  ArrowLeft,
-} from "lucide-react";
+import {Search,Trash2,RefreshCcw,RotateCcw,ShieldAlert,MessageSquareText,ArrowLeft,} from "lucide-react";
 import "./AdminChatPage.css";
 
 // -----------------------------
 // utils
 // -----------------------------
+// role 비교할 때 USER,user,null 등이 섞여도 안전하게 처리하려고 소문자로 통일
 const safeLower = (v) => String(v ?? "").toLowerCase();
+
+// ISO 날짜 문자열을 toLocaleString()으로 보기 좋게 포맷
 const fmt = (iso) => {
   try {
     return new Date(iso).toLocaleString();
   } catch {
-    return iso ?? "";
+    return iso ?? ""; // 파싱 실패하면 원본을 그대로 반환
   }
 };
 
+// 특수문자 들어와도 깨지지 않게 방지
 const escapeRegExp = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+// 검색어(q)가 있을 때, 세션 제목에서 검색어 부분을 하이라이트
 const renderHighlightedText = (text, keyword) => {
   const t = String(text ?? "");
   const k = String(keyword ?? "").trim();
@@ -44,7 +43,7 @@ const renderHighlightedText = (text, keyword) => {
   );
 };
 
-// TopBar height hook (ResizeObserver)
+// TopBar height hook (TopBar 높이 측정)
 const useElementHeight = (ref) => {
   const [h, setH] = useState(0);
 
@@ -73,32 +72,26 @@ const useElementHeight = (ref) => {
 };
 
 // -----------------------------
-// 분리 컴포넌트 (재마운트 방지)
+// 분리 components
 // -----------------------------
+// TopBar
 function TopBar({ topBarRef, error, onRefresh, onGoDashboard }) {
   return (
-    <div ref={topBarRef} className="acp-topbar bg-white border-bottom">
+    <div ref={topBarRef} className="acp-topbar">
       <div className="container acp-container">
-        <div className="d-flex align-items-center justify-content-between py-3">
-          <div className="fw-bold d-flex align-items-center gap-2 acp-top-title">
-            <ShieldAlert /> 관리자 · 세션 관리
+        <div className="acp-topbar-row">
+          <div className="acp-top-title">
+            <ShieldAlert />
+            관리자 · 세션 관리
           </div>
 
-          <div className="d-flex align-items-center gap-2">
-            <button
-              className="btn btn-outline-secondary d-flex align-items-center gap-2"
-              onClick={onGoDashboard}
-              title="관리자 대시보드로"
-            >
+          <div className="acp-top-actions">
+            <button className="btn btn-outline-secondary acp-top-btn" onClick={onGoDashboard} title="관리자 대시보드로">
               <ArrowLeft size={16} />
               <span className="d-none d-md-inline">대시보드</span>
             </button>
 
-            <button
-              className="btn btn-outline-secondary d-flex align-items-center gap-2 acp-refresh-btn"
-              onClick={onRefresh}
-              title="새로고침"
-            >
+            <button className="btn btn-outline-secondary acp-top-btn" onClick={onRefresh} title="새로고침">
               <RefreshCcw size={16} />
               <span className="d-none d-md-inline">새로고침</span>
             </button>
@@ -106,7 +99,7 @@ function TopBar({ topBarRef, error, onRefresh, onGoDashboard }) {
         </div>
 
         {error && (
-          <div className="pb-3">
+          <div className="acp-topbar-error">
             <div className="alert alert-warning mb-0 acp-alert">{error}</div>
           </div>
         )}
@@ -115,32 +108,16 @@ function TopBar({ topBarRef, error, onRefresh, onGoDashboard }) {
   );
 }
 
-function LeftPanel({
-  status,
-  setStatus,
-  memberId,
-  setMemberId,
-  q,
-  setQ,
-  onRunSearch,
-  loadingList,
-  pageInfo,
-  page,
-  totalPages,
-  list,
-  activeSessionId,
-  onSelectSession,
-  onSoftDelete,
-  onRestore,
-  onHardDelete,
-  onPrev,
+// LeftPanel : 세션 목록 + 필터 + 페이징 + 삭제/복구
+function LeftPanel({status,setStatus,memberId,setMemberId,q,setQ,onRunSearch,loadingList,pageInfo,
+  page,totalPages,list,activeSessionId,onSelectSession,onSoftDelete,onRestore,onHardDelete,onPrev,
   onNext,
 }) {
   return (
-    <div className="acp-panel bg-white border rounded-4 shadow-sm overflow-hidden">
-      {/* filters */}
-      <div className="p-3 border-bottom">
-        <div className="d-flex gap-2 align-items-center mb-2">
+    <div className="acp-panel acp-left">
+      {/* filters (필터 UI) */}
+      <div className="acp-left-filters">
+        <div className="acp-left-filter-row">
           <select className="form-select" value={status} onChange={(e) => setStatus(e.target.value)}>
             <option value="ACTIVE">ACTIVE</option>
             <option value="DELETED">DELETED</option>
@@ -163,9 +140,7 @@ function LeftPanel({
         </div>
 
         <div className="input-group">
-          <span className="input-group-text bg-light border-0">
-            <Search size={18} />
-          </span>
+          <span className="input-group-text bg-light border-0"><Search size={18} /></span>
 
           <input
             className="form-control bg-light border-0"
@@ -186,14 +161,14 @@ function LeftPanel({
           </button>
         </div>
 
-        <div className="small text-muted mt-2">
+        <div className="acp-left-meta">
           {loadingList ? "불러오는 중..." : `총 ${pageInfo.totalElements}건 · ${page + 1}/${Math.max(1, totalPages)}`}
         </div>
       </div>
 
-      {/* list */}
+      {/* list (목록 렌더링) */}
       <div className="acp-left-scroll">
-        {list.length === 0 && <div className="p-4 text-center text-muted">세션이 없습니다.</div>}
+        {list.length === 0 && <div className="acp-empty">세션이 없습니다.</div>}
 
         {list.map((s) => {
           const sid = s.sessionId;
@@ -203,13 +178,15 @@ function LeftPanel({
           return (
             <div
               key={sid}
-              className={["px-3", "py-2", "border-top", "acp-list-item", active ? "is-active" : ""].join(" ")}
+              className={`acp-list-item ${active ? "is-active" : ""}`}
               onClick={() => onSelectSession(sid)}
+              role="button"
+              tabIndex={0}
             >
-              <div className="d-flex align-items-center justify-content-between gap-2">
+              <div className="acp-list-item-row">
                 <div className="acp-minw-0">
-                  <div className="d-flex align-items-center gap-2 acp-minw-0">
-                    <div className="fw-semibold acp-session-line">
+                  <div className="acp-list-item-top">
+                    <div className="acp-session-line">
                       #{sid} · member {s.memberId} · {s.status}
                     </div>
 
@@ -220,11 +197,10 @@ function LeftPanel({
                   </div>
 
                   <div className="text-muted acp-ellipsis">{renderHighlightedText(s.title || "새 대화", q)}</div>
-
                   <div className="text-muted acp-sub-line">last: {s.lastMessageAt ? fmt(s.lastMessageAt) : "-"}</div>
                 </div>
 
-                <div className="d-flex gap-1 acp-actions">
+                <div className="acp-actions">
                   {s.status !== "DELETED" ? (
                     <button
                       className="btn btn-sm btn-link text-danger acp-icon-btn"
@@ -266,15 +242,19 @@ function LeftPanel({
         })}
       </div>
 
-      {/* pagination */}
-      <div className="p-3 border-top bg-white d-flex justify-content-between align-items-center">
+      {/* pagination (페이징) */}
+      <div className="acp-left-pagination">
         <button className="btn btn-outline-secondary btn-sm" disabled={page <= 0 || loadingList} onClick={onPrev}>
           이전
         </button>
         <div className="small text-muted">
           page {page + 1} / {Math.max(1, totalPages)}
         </div>
-        <button className="btn btn-outline-secondary btn-sm" disabled={page + 1 >= totalPages || loadingList} onClick={onNext}>
+        <button
+          className="btn btn-outline-secondary btn-sm"
+          disabled={page + 1 >= totalPages || loadingList}
+          onClick={onNext}
+        >
           다음
         </button>
       </div>
@@ -282,10 +262,11 @@ function LeftPanel({
   );
 }
 
+// RightPanel : 선택한 세션의 메시지 목록
 function RightPanel({ activeSessionId, messages, loadingMessages }) {
   return (
-    <div className="acp-panel bg-white border rounded-4 shadow-sm overflow-hidden acp-right">
-      <div className="p-3 border-bottom d-flex align-items-center justify-content-between">
+    <div className="acp-panel acp-right">
+      <div className="acp-right-head">
         <div>
           <div className="fw-bold acp-accent">세션 상세</div>
           <div className="text-muted acp-right-sub">
@@ -295,23 +276,18 @@ function RightPanel({ activeSessionId, messages, loadingMessages }) {
         <div className="small text-muted">{loadingMessages ? "불러오는 중..." : ""}</div>
       </div>
 
-      <div className="acp-chat-area p-3">
-        {!activeSessionId && <div className="p-4 text-center text-muted">세션을 선택하면 메시지가 보입니다.</div>}
+      <div className="acp-chat-area">
+        {!activeSessionId && <div className="acp-empty">세션을 선택하면 메시지가 보입니다.</div>}
 
-        {activeSessionId && messages.length === 0 && !loadingMessages && (
-          <div className="p-4 text-center text-muted">메시지가 없습니다.</div>
-        )}
+        {activeSessionId && messages.length === 0 && !loadingMessages && <div className="acp-empty">메시지가 없습니다.</div>}
 
         {messages.map((m) => {
           const isUser = safeLower(m.role) === "user";
           return (
-            <div
-              key={m.chatId}
-              className={["acp-bubble-row", "mb-3", "d-flex", isUser ? "is-user" : "is-ai"].join(" ")}
-            >
-              <div className={["acp-bubble", "shadow-sm", isUser ? "acp-bubble-user" : "acp-bubble-ai"].join(" ")}>
+            <div key={m.chatId} className={`acp-bubble-row ${isUser ? "is-user" : "is-ai"}`}>
+              <div className={`acp-bubble ${isUser ? "acp-bubble-user" : "acp-bubble-ai"}`}>
                 {m.content}
-                {m.createdAt && <div className="acp-bubble-time mt-2">{fmt(m.createdAt)}</div>}
+                {m.createdAt && <div className="acp-bubble-time">{fmt(m.createdAt)}</div>}
               </div>
             </div>
           );
@@ -320,7 +296,7 @@ function RightPanel({ activeSessionId, messages, loadingMessages }) {
         {loadingMessages && <div className="text-center text-muted py-3">불러오는 중...</div>}
       </div>
 
-      <div className="p-3 border-top text-muted small" />
+      <div className="acp-right-foot" />
     </div>
   );
 }
@@ -329,10 +305,11 @@ function RightPanel({ activeSessionId, messages, loadingMessages }) {
 // main
 // -----------------------------
 export default function AdminChatPage() {
-  const PAGE_SIZE = 7; // ✅ 7개씩 페이지
+  const PAGE_SIZE = 7;
 
   const navigate = useNavigate();
 
+  // TopBar height
   const topBarRef = useRef(null);
   const topBarH = useElementHeight(topBarRef);
 
@@ -352,17 +329,19 @@ export default function AdminChatPage() {
   const [messages, setMessages] = useState([]);
   const [loadingMessages, setLoadingMessages] = useState(false);
 
+  // error
   const [error, setError] = useState("");
 
+  // /api/admin/chat/sessions GET : API 호출 
   const loadList = async (nextPage = page) => {
     setLoadingList(true);
     setError("");
 
     try {
       const params = {
-        status: status || undefined,
-        memberId: memberId.trim() ? Number(memberId.trim()) : undefined,
-        q: q.trim() ? q.trim() : undefined,
+        status: status || undefined,  // 없으면 전체
+        memberId: memberId.trim() ? Number(memberId.trim()) : undefined,  // 입력 시 Number로
+        q: q.trim() ? q.trim() : undefined, // 입력 시만
         page: nextPage,
         size: PAGE_SIZE,
       };
@@ -370,14 +349,15 @@ export default function AdminChatPage() {
       const res = await axiosInstance.get("/api/admin/chat/sessions", { params });
       const content = res.data?.content ?? [];
 
-      setList(content);
-      setPageInfo({
+      setList(content); // 응답 content를 list에 저장
+      setPageInfo({ // pageInfo 갱신
         page: res.data?.page ?? nextPage,
         size: res.data?.size ?? PAGE_SIZE,
         totalPages: res.data?.totalPages ?? 0,
         totalElements: res.data?.totalElements ?? 0,
       });
 
+      // activeSessionId가 아직 없으면 첫 세션 자동 선택 (UX)
       const first = content?.[0];
       if (first?.sessionId && activeSessionId == null) setActiveSessionId(first.sessionId);
     } catch (e) {
@@ -389,6 +369,7 @@ export default function AdminChatPage() {
     }
   };
 
+  // /api/admin/chat/sessions/{sid}/messages GET : 오른쪽 패널 메시지 갱신
   const loadMessages = async (sid) => {
     if (!sid) return;
     setLoadingMessages(true);
@@ -406,16 +387,17 @@ export default function AdminChatPage() {
     }
   };
 
+  // status 변경되면 page 0으로 초기화하고 목록 재조회
   useEffect(() => {
     setPage(0);
     loadList(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [status]);
 
+  // activeSessionId 변경되면 해당 세션 메시지 조회
   useEffect(() => {
     if (!activeSessionId) return;
     loadMessages(activeSessionId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeSessionId]);
 
   const onRunSearch = () => {
@@ -439,6 +421,7 @@ export default function AdminChatPage() {
     loadList(np);
   };
 
+  // 삭제
   const onSoftDelete = async (sid) => {
     const ok = window.confirm(`세션 #${sid}를 삭제(숨김) 처리할까요?`);
     if (!ok) return;
@@ -457,6 +440,7 @@ export default function AdminChatPage() {
     }
   };
 
+  // 복구
   const onRestore = async (sid) => {
     const ok = window.confirm(`세션 #${sid}를 복구(ACTIVE)할까요?`);
     if (!ok) return;
@@ -470,6 +454,7 @@ export default function AdminChatPage() {
     }
   };
 
+  // 영구삭제
   const onHardDelete = async (sid) => {
     const ok = window.confirm(
       `⚠️ 세션 #${sid}를 영구삭제할까요?\n삭제 후에는 복구할 수 없고, 메시지도 함께 삭제됩니다.`
@@ -490,11 +475,11 @@ export default function AdminChatPage() {
     }
   };
 
-  // topbar 제외한 바디 높이 고정
-  const bodyHeight = useMemo(() => `calc(100vh - ${topBarH}px)`, [topBarH]);
+  // TopBar 높이를 CSS 변수로 넘겨서 인라인 최소화
+  const pageStyle = useMemo(() => ({ "--topbar-h": `${topBarH}px` }), [topBarH]);
 
   return (
-    <div className="acp-page">
+    <div className="acp-page" style={pageStyle}>
       <TopBar
         topBarRef={topBarRef}
         error={error}
@@ -502,8 +487,8 @@ export default function AdminChatPage() {
         onGoDashboard={() => navigate("/admin/dashboard")}
       />
 
-      <div className="acp-body" style={{ height: bodyHeight }}>
-        <div className="container py-3 acp-container acp-body-inner">
+      <div className="acp-body">
+        <div className="container acp-container acp-body-inner">
           <div className="row g-3 acp-grid">
             <div className="col-12 col-lg-4 d-flex flex-column acp-col">
               <LeftPanel

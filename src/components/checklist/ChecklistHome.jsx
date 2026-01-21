@@ -35,9 +35,16 @@ export default function ChecklistHome() {
     return res.data; // { sessionId, templateId, status }
   };
 
-  const resetSession = async (sessionId) => {
-    await axiosInstance.post(`/checklists/pre/session/${sessionId}/reset`);
+  // ✅ 강제 신규 PRE 세션 시작
+  const startNewSession = async (mid) => {
+    const res = await axiosInstance.post(
+      "/checklists/pre/session/start-new",
+      null,
+      { params: { memberId: mid } }
+    );
+    return res.data; // { sessionId }
   };
+
 
   // ✅ 진행중 데이터가 있는지 “응답 데이터 유무”로 판단
   // (PreChecklistPage에서 이미 쓰는 statuses API를 여기서도 재사용)
@@ -50,6 +57,22 @@ export default function ChecklistHome() {
   const goHistory = () => {
     navigate("/checklist/history");
   };
+
+  // ✅ 최근 완료된 PRE 세션 조회
+  const loadLatestCompletedPreSessionId = async (memberId) => {
+    const res = await axiosInstance.get("/checklists/pre/history", {
+      params: {
+        memberId,
+        status: "COMPLETED",
+        page: 0,
+        size: 1,
+      },
+    });
+
+    const content = res?.data?.content;
+    return content && content.length > 0 ? content[0].sessionId : null;
+  };
+
 
   // ✅ PRE “사전 체크 시작” 클릭 시:
   // 1) 세션 가져오기(없으면 생성)
@@ -108,9 +131,25 @@ export default function ChecklistHome() {
       setBusy(true);
       setError("");
 
-      const res = await axiosInstance.post("/checklists/post/session/start", null, {
-        params: { memberId },
-      });
+      // ✅ 1️⃣ 최근 완료된 PRE 세션 조회
+      const preSessionId =
+        await loadLatestCompletedPreSessionId(memberId);
+
+      if (!preSessionId) {
+        throw new Error("완료된 사전 체크리스트가 없습니다.");
+      }
+
+      // ✅ 2️⃣ POST 시작 (preSessionId 포함)
+      const res = await axiosInstance.post(
+        "/checklists/post/session/start",
+        null,
+        {
+          params: {
+            memberId,
+            preSessionId,
+          },
+        }
+      );
 
       const sid = res?.data?.sessionId;
       if (!sid) {
@@ -118,6 +157,7 @@ export default function ChecklistHome() {
       }
 
       navigate("/checklist/post", { state: { sessionId: sid } });
+
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -130,22 +170,35 @@ export default function ChecklistHome() {
     }
   };
 
+
   // ✅ 이어서 하기
   const handlePreContinue = async () => {
     if (!preSessionId) return;
     navigate("/checklist/pre", { state: { sessionId: preSessionId } });
   };
 
-  // ✅ 새로 작성하기 = reset 후 이동
+  // ✅ 새로 작성하기 = 무조건 새 세션
   const handlePreRestart = async () => {
-    if (!preSessionId) return;
+    if (!memberId) return;
 
     try {
       setBusy(true);
       setError("");
 
-      await resetSession(preSessionId);
-      navigate("/checklist/pre", { state: { sessionId: preSessionId } });
+      const res = await startNewSession(memberId);
+      const newSessionId = res?.sessionId;
+
+      if (!newSessionId) {
+        throw new Error("start-new 응답에 sessionId가 없습니다.");
+      }
+
+      // 선택 UI 닫기
+      setShowPreChoice(false);
+      setPreSessionId(newSessionId);
+
+      navigate("/checklist/pre", {
+        state: { sessionId: newSessionId },
+      });
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -157,6 +210,7 @@ export default function ChecklistHome() {
       setBusy(false);
     }
   };
+
 
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>

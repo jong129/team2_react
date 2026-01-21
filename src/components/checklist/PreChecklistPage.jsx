@@ -16,6 +16,17 @@ export default function PreChecklistPage() {
 
   const [checks, setChecks] = useState({});
 
+  // ✅ 사전 체크 완료 후 결과 표시용
+  const [preResult, setPreResult] = useState(null);
+  /*
+  preResult = {
+    level: "주의 필요",
+    message: "...",
+    postGroupCode: "POST_B"
+  }
+  */
+
+
   // ✅ 저장 완료 토스트
   const [savedNotice, setSavedNotice] = useState(false);
   const saveTimerRef = useRef(null);
@@ -26,8 +37,8 @@ export default function PreChecklistPage() {
   // ✅ 로그인 사용자
   const memberId = Number(localStorage.getItem("loginMemberId"));
 
-  // ✅ ChecklistHome에서 넘겨준 sessionId (있으면 재사용)
-  const incomingSessionId = location?.state?.sessionId ?? null;
+  // ✅ ChecklistHome 등에서 넘어온 PRE 세션 ID
+  const incomingPreSessionId = location?.state?.preSessionId ?? null;
 
   const startSession = async (mid) => {
     const res = await axiosInstance.post("/checklists/pre/session/start", null, {
@@ -36,20 +47,16 @@ export default function PreChecklistPage() {
     return res.data;
   };
 
-  const loadTemplate = async () => {
-    const res = await axiosInstance.get("/checklists/pre/active");
+  const loadSession = async (sessionId) => {
+    const res = await axiosInstance.get(
+      `/checklists/pre/session/${sessionId}`
+    );
     return res.data;
   };
 
   const loadSummary = async (sessionId) => {
     const res = await axiosInstance.get(`/checklists/pre/session/${sessionId}/summary`);
     return res.data;
-  };
-
-  // ✅ (F) 이어하기용: 세션 저장 상태 목록 조회
-  const loadStatuses = async (sessionId) => {
-    const res = await axiosInstance.get(`/checklists/pre/session/${sessionId}/statuses`);
-    return res.data; // [{ itemId, checkStatus }]
   };
 
   const saveCheckStatus = async (sessionId, itemId, checkStatus) => {
@@ -69,19 +76,13 @@ export default function PreChecklistPage() {
     };
   }, []);
 
-  // ✅ 체크맵 동기화 함수(중복 제거)
-  const hydrateChecks = async (tpl, sessId) => {
-    const init = {};
-    (tpl.items || []).forEach((it) => (init[it.itemId] = "NOT_DONE"));
-
-    // 서버 저장값 덮어쓰기
-    const statuses = await loadStatuses(sessId);
-    (statuses || []).forEach((s) => {
-      init[s.itemId] = s.checkStatus; // DONE / NOT_DONE / NOT_REQUIRED
-    });
-
-    setChecks(init);
+  const completePreSession = async (sessionId) => {
+    const res = await axiosInstance.patch(
+      `/checklists/pre/session/${sessionId}/complete`
+    );
+    return res.data; // ✅ 반드시 반환
   };
+
 
   useEffect(() => {
     (async () => {
@@ -91,29 +92,38 @@ export default function PreChecklistPage() {
 
         if (!memberId) {
           alert("로그인이 필요합니다.");
-          navigate("/member_login");
+          navigate("/login");
           return;
         }
 
-        // 1) 템플릿
-        const tpl = await loadTemplate();
-        setData(tpl);
-
-        // 2) 세션: state로 받은 sessionId가 있으면 그걸 사용, 없으면 start 호출
+        // 1️⃣ PRE 세션 확보 (이어하기 or 신규)
         let sess;
-        if (incomingSessionId) {
-          sess = { sessionId: incomingSessionId };
+        if (incomingPreSessionId) {
+          sess = { sessionId: incomingPreSessionId };
         } else {
           sess = await startSession(memberId);
         }
         setSession(sess);
 
-        // 3) 요약
+        // 2️⃣ 🔥 세션 기준 단일 데이터 조회 (핵심)
+        const sessionData = await axiosInstance.get(
+          `/checklists/pre/session/${sess.sessionId}`
+        ).then(res => res.data);
+
+        // sessionData = { sessionId, templateId, items: [...] }
+        setData(sessionData);
+
+        // 3️⃣ 체크 상태 초기화 (CHECKLIST_ITEM_ID 기준)
+        const initChecks = {};
+        (sessionData.items || []).forEach(it => {
+          initChecks[it.itemId] = it.checkStatus ?? "NOT_DONE";
+        });
+        setChecks(initChecks);
+
+        // 4️⃣ 요약 조회
         const sum = await loadSummary(sess.sessionId);
         setSummary(sum);
 
-        // 4) 체크맵: 서버 statuses로 동기화
-        await hydrateChecks(tpl, sess.sessionId);
       } catch (e) {
         const msg =
           e?.response?.data?.message ||
@@ -125,16 +135,20 @@ export default function PreChecklistPage() {
         setLoading(false);
       }
     })();
-  }, [navigate, memberId, incomingSessionId]);
+  }, [navigate, memberId, incomingPreSessionId]);
+
 
   const progress = useMemo(() => {
-    const total = summary?.totalCount ?? data?.items?.length ?? 0;
-    const done =
-      summary?.doneCount ??
-      Object.values(checks).filter((v) => v === "DONE").length;
+    const total = data?.items?.length ?? 0;
+
+    const done = Object.values(checks).filter(
+      (v) => v === "DONE"
+    ).length;
+
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+
     return { done, total, pct };
-  }, [data, checks, summary]);
+  }, [data, checks]);
 
   // ✅ 영역별 진행 요약
   const areaStats = useMemo(() => {
@@ -224,31 +238,35 @@ export default function PreChecklistPage() {
 
   const resetAll = async () => {
     if (!session?.sessionId) {
-      setError("세션이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
+      setError("세션이 아직 준비되지 않았습니다.");
       return;
     }
 
     try {
       setError("");
-      setBusyItemId("__RESET__"); // 전체 작업 중 표시용
+      setBusyItemId("__RESET__");
 
       await resetSession(session.sessionId);
+
+      const sessionData = await loadSession(session.sessionId);
+      setData(sessionData);
+
+      const initChecks = {};
+      (sessionData.items || []).forEach(it => {
+        initChecks[it.itemId] = it.checkStatus ?? "NOT_DONE";
+      });
+      setChecks(initChecks);
 
       const sum = await loadSummary(session.sessionId);
       setSummary(sum);
 
-      await hydrateChecks(data, session.sessionId);
     } catch (e) {
-      const msg =
-        e?.response?.data?.message ||
-        e?.response?.data ||
-        e?.message ||
-        "초기화 중 오류";
-      setError(msg);
+      setError("초기화 중 오류");
     } finally {
       setBusyItemId(null);
     }
   };
+
 
   // ✅ 저장 버튼 액션: 토스트 띄우고 1.5초 뒤 이동
   const handleSaveExit = () => {
@@ -447,65 +465,48 @@ export default function PreChecklistPage() {
 
           {/* 요약 + 진행률 + 버튼 */}
           <div className="mt-4 mx-auto" style={{ maxWidth: 920 }}>
-            <div className="bg-white rounded-5 shadow-sm border p-4">
-              {summary && (
-                <div className="mb-3">
-                  <div className="d-flex align-items-center justify-content-between mb-2">
-                    <div className="fw-bold" style={{ color: "#059669" }}>
-                      요약
-                    </div>
-                    {isBusy && <div className="small text-muted">처리중...</div>}
+            {/* ✅ 사전 점검 완료 후 결과 카드 */}
+            {preResult && (
+              <div className="mb-4 mx-auto" style={{ maxWidth: 920 }}>
+                <div
+                  className={`border rounded-5 p-4 shadow-sm ${preResult.postGroupCode === "POST_B"
+                    ? "border-danger bg-light"
+                    : "border-success bg-white"
+                    }`}
+                >
+                  <div className="fw-bold mb-2">
+                    {preResult.postGroupCode === "POST_B"
+                      ? "⚠️ 사전 점검 결과 안내"
+                      : "✅ 사전 점검 완료"}
                   </div>
 
-                  <div className="small">
-                    <span className="fw-bold">{summary.level}</span> - {summary.message}
+                  <div className="text-secondary mb-3">
+                    {preResult.message}
                   </div>
 
-                  {/* ✅ 영역별 진행 요약 */}
-                  {areaStats.length > 0 && (
-                    <div className="mt-3">
-                      <div className="fw-bold small mb-2">영역별 진행 현황</div>
-
-                      <div className="row g-2">
-                        {areaStats.map((a) => (
-                          <div className="col-12 col-md-6" key={a.area}>
-                            <div className="p-3 rounded-4 border bg-light">
-                              <div className="d-flex align-items-center justify-content-between mb-1">
-                                <div className="fw-semibold">{a.area}</div>
-                                <div className="small text-muted">
-                                  {a.done}/{a.total} ({a.pct}%)
-                                </div>
-                              </div>
-
-                              <div className="progress" style={{ height: 8 }}>
-                                <div
-                                  className="progress-bar"
-                                  role="progressbar"
-                                  style={{ width: `${a.pct}%`, backgroundColor: "#059669" }}
-                                  aria-valuenow={a.pct}
-                                  aria-valuemin="0"
-                                  aria-valuemax="100"
-                                />
-                              </div>
-
-                              {a.requiredNotDone > 0 ? (
-                                <div className="mt-2 small" style={{ color: "#dc2626" }}>
-                                  필수 미완료 {a.requiredNotDone}/{a.requiredTotal}
-                                </div>
-                              ) : (
-                                <div className="mt-2 small text-muted">
-                                  필수 항목 완료 ✅ ({a.requiredTotal}/{a.requiredTotal})
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
+                  <div className="text-center">
+                    <button
+                      className={`btn rounded-pill fw-bold px-4 ${preResult.postGroupCode === "POST_B"
+                        ? "btn-danger"
+                        : "btn-emerald text-white"
+                        }`}
+                      onClick={() => {
+                        // ✅ 사전 세션 ID를 반드시 state로 전달
+                        navigate("/checklist/post", {
+                          state: {
+                            preSessionId: session.sessionId, // ⭐ 핵심
+                          },
+                        });
+                      }}
+                    >
+                      사후 체크리스트로 이동
+                    </button>
+                  </div>
                 </div>
-              )}
+              </div>
+            )}
 
+            <div className="bg-white rounded-5 shadow-sm border p-4">
               <div className="mb-3">
                 <div className="fw-bold mb-2" style={{ color: "#059669" }}>
                   진행률
@@ -523,7 +524,12 @@ export default function PreChecklistPage() {
                 <div className="small text-muted mt-2">완료한 항목은 “진행 완료”에 체크하세요.</div>
               </div>
 
+              <div className="text-center small text-muted mb-2">
+                • <b>저장</b>: 중간까지 점검한 내용을 저장하고, 나중에 이어서 할 수 있어요.<br />
+                • <b>완료</b>: 사전 점검을 끝냈다고 확정하며, 이후 사후 체크리스트 유형이 결정돼요.
+              </div>
               <div className="d-flex justify-content-center gap-2 mt-3">
+
                 <button
                   className="btn btn-outline-emerald rounded-pill fw-bold px-4"
                   onClick={resetAll}
@@ -533,11 +539,42 @@ export default function PreChecklistPage() {
                 </button>
 
                 <button
-                  className="btn btn-emerald rounded-pill fw-bold px-4 text-white"
+                  className="btn btn-outline-secondary rounded-pill fw-bold px-4"
                   disabled={isBusy}
                   onClick={handleSaveExit}
                 >
                   저장
+                </button>
+
+                <button
+                  className="btn btn-emerald rounded-pill fw-bold px-4 text-white"
+                  disabled={
+                    isBusy ||
+                    summary?.requiredNotDone > 0
+                  }
+                  onClick={async () => {
+                    if (!window.confirm(
+                      "사전 체크리스트를 완료하시겠어요?\n완료하면 결과가 확정됩니다."
+                    )) return;
+
+                    try {
+                      const post = await completePreSession(session.sessionId);
+
+                      setPreResult({
+                        level: post.postGroupCode === "POST_B" ? "주의 필요" : "점검 완료",
+                        message:
+                          post.postGroupCode === "POST_B"
+                            ? "사전 체크리스트에서 일부 미이행 항목이 확인되어, 위험 수준의 사후 체크리스트를 제공합니다."
+                            : "사전 체크리스트가 안정적으로 완료되어, 일반 사후 체크리스트를 제공합니다.",
+                        postGroupCode: post.postGroupCode
+                      });
+
+                    } catch (e) {
+                      alert("완료 처리 중 오류가 발생했습니다.");
+                    }
+                  }}
+                >
+                  완료
                 </button>
               </div>
             </div>

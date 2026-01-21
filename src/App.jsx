@@ -10,11 +10,11 @@ import PostChecklistPage from "./components/checklist/PostChecklistPage";
 import AdminChecklistManage from "./components/checklist/AdminChecklistManage";
 import AdminChecklistTemplatesPage from "./components/checklist/AdminChecklistTemplatesPage";
 import AdminChecklistTemplateEditPage from "./components/checklist/AdminChecklistTemplateEditPage";
-import AdminChecklistTemplateCreatePage from "./components/checklist/AdminChecklistTemplateCreatePage";
+import AdminPostChecklistAiPanel from "./components/checklist/AdminPostChecklistAiPanel";
+import AdminPostChecklistAiImprovePage from './components/checklist/AdminPostChecklistAiImprovePage';
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
-import RagChat from './components/aichatbot/RagChat';
 import MemberChatPage from "./components/aichatbot/MemberChatPage";
 import AdminChatPage from './components/aichatbot/AdminChatPage';
 import ChatbotStats from './components/aichatbot/ChatbotStats';
@@ -37,6 +37,9 @@ import Board from './components/board/Board';
 import BoardWrite from './components/board/BoardWrite';
 import BoardEdit from './components/board/BoardEdit';
 import BoardRead from './components/board/BoardRead';
+import Member_Inquiries from './components/member/member_inquiries';
+import Admin_inquiries_reply from './components/admin/Admin_inquiries_reply';
+
 
 function App() {
   const [isLoggedIn, setIsLoggedIn] = useState(() => {
@@ -49,7 +52,7 @@ function App() {
     // 처음 1회 동기화
     sync();
 
-    // ✅ 같은 탭에서도 동작하게 커스텀 이벤트 사용
+    // 같은 탭에서도 동작하게 커스텀 이벤트 사용
     window.addEventListener("auth-change", sync);
 
     return () => window.removeEventListener("auth-change", sync);
@@ -67,7 +70,8 @@ function App() {
           <Route path="/admin/checklist" element={<AdminChecklistManage />} />
           <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
           <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
-          <Route path="/admin/checklists/templates/new" element={<AdminChecklistTemplateCreatePage />} />
+          <Route path="/admin/ai/post" element={<AdminPostChecklistAiPanel />} />
+          <Route path="/admin/ai/post/improve/:templateId" element={<AdminPostChecklistAiImprovePage />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
@@ -89,14 +93,15 @@ function App() {
           <Route path="/board/write" element={<BoardWrite />} />
           <Route path="/board/edit/:boardId" element={<BoardEdit />} />
           <Route path="/board/read/:boardId" element={<BoardRead />} />
-          {/* ✅ RAG 전용 챗 페이지 */}
-          <Route path="/chat" element={<RagChat />} />
+          <Route path="/member/inquiries" element={<Member_Inquiries />} />
+          <Route path="/admin/inquiries_reply" element={<Admin_inquiries_reply />} />
+          {/* RAG 전용 챗 페이지 */}
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
           <Route path="/admin/chatbotstats" element={<ChatbotStats />} />
         </Routes>
 
-        {/* ✅ 어디 페이지든 항상 떠있는 미니 챗봇 */}
+        {/* 어디 페이지든 항상 떠있는 미니 챗봇 */}
         <MiniChatbot isLoggedIn={isLoggedIn} />
       </div>
     </BrowserRouter>

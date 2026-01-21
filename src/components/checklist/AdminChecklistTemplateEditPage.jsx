@@ -1,7 +1,13 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import { ArrowLeft, Plus, Trash2, ChevronUp, ChevronDown, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  ChevronUp,
+  ChevronDown,
+} from "lucide-react";
 
 const PHASE_LABEL = { PRE: "사전", POST: "사후" };
 const TEMPLATE_STATUS_LABEL = {
@@ -10,9 +16,6 @@ const TEMPLATE_STATUS_LABEL = {
   RETIRED: "비활성화",
 };
 
-function ynBadge(yn) {
-  return yn === "Y" ? "badge text-bg-success" : "badge text-bg-secondary";
-}
 function statusBadge(status) {
   switch (status) {
     case "ACTIVE":
@@ -30,109 +33,158 @@ export default function AdminChecklistTemplateEditPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
 
-  // ✅ 템플릿 메타(단건)
+  /* =======================
+ * ✅ 로그인 체크
+ * ======================= */
+  useEffect(() => {
+    const memberId = Number(localStorage.getItem("loginMemberId")) || 0;
+
+    if (!memberId) {
+      alert("로그인이 필요합니다.");
+      navigate("/login");
+    }
+  }, [navigate]);
+
+
+  /* =======================
+   * 상태
+   * ======================= */
   const [metaLoading, setMetaLoading] = useState(true);
-  const [metaSaving, setMetaSaving] = useState(false);
   const [template, setTemplate] = useState(null);
 
-  const [editName, setEditName] = useState("");
-  const [editDesc, setEditDesc] = useState("");
-
-  // ✅ 메타 변경 감지용 기준값
-  const [originName, setOriginName] = useState("");
-  const [originDesc, setOriginDesc] = useState("");
-
-  // ✅ 템플릿 구성(매핑)
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [templateItems, setTemplateItems] = useState([]);
 
-  // ✅ 항목 풀
+  /* ===== 항목 풀 ===== */
   const [poolLoading, setPoolLoading] = useState(true);
   const [poolError, setPoolError] = useState("");
   const [poolPage, setPoolPage] = useState(null);
 
-  const [poolPhase, setPoolPhase] = useState("");
-  const [poolPostGroupCode, setPoolPostGroupCode] = useState("");
-  const [poolKeyword, setPoolKeyword] = useState("");
-  const [poolOnlyActive, setPoolOnlyActive] = useState(true);
+  const [poolPhase, setPoolPhase] = useState("PRE");
   const [poolPageNo, setPoolPageNo] = useState(0);
-  const poolSize = 10;
+  const poolSize = 5;
 
-  // ✅ 편집 가능 여부: DRAFT에서만 구성 편집
+  /** ✅ DRAFT에서만 편집 가능 */
   const editable = template?.status === "DRAFT";
 
-  // ✅ 메타 변경 여부(간단히: 이름/설명만)
-  const dirtyMeta = useMemo(() => {
-    const a = (editName ?? "").trim();
-    const b = (originName ?? "").trim();
-    const c = (editDesc ?? "").trim();
-    const d = (originDesc ?? "").trim();
-    return a !== b || c !== d;
-  }, [editName, editDesc, originName, originDesc]);
+  /* =======================
+   * 계산 값
+   * ======================= */
+
+  /** ✅ 템플릿 단계와 풀 단계 불일치 여부 */
+  const isPhaseMismatch =
+    template?.phase && template.phase !== poolPhase;
 
   const selectedIds = useMemo(
-    () => new Set(templateItems.map((x) => x.itemMasterId)),
+    () => new Set(templateItems.map((x) => Number(x.itemMasterId))),
     [templateItems]
   );
 
-  const poolQuery = useMemo(() => {
-    const params = { page: poolPageNo, size: poolSize };
-    if (poolPhase) params.phase = poolPhase;
-    if (poolPostGroupCode) params.postGroupCode = poolPostGroupCode;
-    if (poolOnlyActive) params.activeYn = "Y";
-    if (poolKeyword.trim()) params.keyword = poolKeyword.trim();
-    return params;
-  }, [poolPageNo, poolPhase, poolPostGroupCode, poolOnlyActive, poolKeyword]);
+  /** ✅ 풀 페이징 상태 */
+  const poolHasPrev = poolPage && !poolPage.first;
+  const poolHasNext = poolPage && !poolPage.last;
 
-  // ✅ 메타 단건 조회
+  const poolQuery = useMemo(() => {
+    return {
+      page: poolPageNo,
+      size: poolSize,
+      phase: poolPhase,
+      activeYn: "Y",
+    };
+  }, [poolPageNo, poolPhase]);
+
+  /* =======================
+   * API
+   * ======================= */
+
+  // ✅ 템플릿 구성 저장
+  const saveTemplateItems = async () => {
+    if (!editable) return;
+
+    try {
+      // 🔹 TemplateItemSaveDto 형태로 변환
+      const payload = templateItems
+        .sort((a, b) => a.itemOrder - b.itemOrder)
+        .map((x) => ({
+          itemMasterId: x.itemMasterId,
+          itemOrder: x.itemOrder,
+          requiredYn: x.requiredYn,
+        }));
+
+      await axiosInstance.put(
+        `/admin/checklists/templates/${templateId}/items`,
+        payload
+      );
+
+      alert("템플릿 구성이 저장되었습니다.");
+
+      // ✅ 서버 기준으로 다시 조회 (정합성 확보)
+      fetchTemplateItems();
+    } catch (e) {
+      alert("템플릿 구성 저장에 실패했습니다.");
+    }
+  };
+
+  // ✅ 템플릿 상태 변경
+  const changeTemplateStatus = async (nextStatus) => {
+    if (!template || template.status === nextStatus) return;
+
+    try {
+      await axiosInstance.patch(
+        `/admin/checklists/templates/${templateId}/status`,
+        { status: nextStatus }
+      );
+
+      // ✅ 성공 시 화면 상태 즉시 반영
+      setTemplate((prev) => ({
+        ...prev,
+        status: nextStatus,
+      }));
+    } catch (e) {
+      alert("템플릿 상태 변경에 실패했습니다.");
+    }
+  };
+
   const fetchTemplate = async () => {
     try {
       setMetaLoading(true);
-      const res = await axiosInstance.get(`/admin/checklists/templates/${templateId}`);
+      const res = await axiosInstance.get(
+        `/admin/checklists/templates/${templateId}`
+      );
       setTemplate(res.data);
-
-      const name = res.data.templateName ?? "";
-      const desc = res.data.description ?? "";
-
-      setEditName(name);
-      setEditDesc(desc);
-
-      // ✅ 기준값 갱신(변경 감지용)
-      setOriginName(name);
-      setOriginDesc(desc);
-    } catch (e) {
-      alert("템플릿 메타 조회 실패");
-      setTemplate(null);
     } finally {
       setMetaLoading(false);
     }
   };
 
-  // ✅ 템플릿 구성 조회
   const fetchTemplateItems = async () => {
     try {
       setLoading(true);
-      setError("");
-      const res = await axiosInstance.get(`/admin/checklists/templates/${templateId}/items`);
-      const sorted = [...res.data].sort((a, b) => (a.itemOrder ?? 0) - (b.itemOrder ?? 0));
-      setTemplateItems(sorted);
-    } catch (e) {
+      const res = await axiosInstance.get(
+        `/admin/checklists/templates/${templateId}/items`
+      );
+      setTemplateItems(
+        [...res.data].sort(
+          (a, b) => (a.itemOrder ?? 0) - (b.itemOrder ?? 0)
+        )
+      );
+    } catch {
       setError("템플릿 구성 조회 실패");
     } finally {
       setLoading(false);
     }
   };
 
-  // ✅ 항목 풀 조회
   const fetchPool = async () => {
     try {
       setPoolLoading(true);
-      setPoolError("");
-      const res = await axiosInstance.get(`/admin/checklists/item-masters`, { params: poolQuery });
+      const res = await axiosInstance.get(
+        `/admin/checklists/item-masters/pool`,
+        { params: poolQuery }
+      );
       setPoolPage(res.data);
-    } catch (e) {
+    } catch {
       setPoolError("항목 풀 조회 실패");
     } finally {
       setPoolLoading(false);
@@ -142,71 +194,65 @@ export default function AdminChecklistTemplateEditPage() {
   useEffect(() => {
     fetchTemplate();
     fetchTemplateItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [templateId]);
 
   useEffect(() => {
-    fetchPool();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [poolQuery]);
+    if (editable) fetchPool();
+  }, [poolQuery, editable]);
 
-  // ✅ 메타 저장 (이름/설명만)
-  const saveMeta = async () => {
-    try {
-      setMetaSaving(true);
-      await axiosInstance.patch(`/admin/checklists/templates/${templateId}/meta`, {
-        templateName: editName,
-        description: editDesc,
-      });
-      await fetchTemplate();
-      alert("메타 저장 완료");
-    } catch (e) {
-      alert("메타 저장 실패");
-    } finally {
-      setMetaSaving(false);
-    }
-  };
-
-  // ✅ 상태 변경은 여기서만
-  const changeTemplateStatus = async (nextStatus) => {
-    try {
-      await axiosInstance.patch(`/admin/checklists/templates/${templateId}/status`, {
-        status: nextStatus,
-      });
-      await fetchTemplate();
-      alert("상태 변경 완료");
-    } catch (e) {
-      alert("상태 변경 실패");
-    }
-  };
-
-  const nextOrder = () => {
-    const max = templateItems.reduce((m, x) => Math.max(m, x.itemOrder ?? 0), 0);
-    return max + 1;
-  };
+  /* =======================
+   * 동작 함수
+   * ======================= */
+  const nextOrder = () =>
+    Math.max(0, ...templateItems.map((x) => x.itemOrder ?? 0)) + 1;
 
   const addFromPool = (row) => {
     if (!editable) return;
-    if (selectedIds.has(row.itemMasterId)) return;
+    if (isPhaseMismatch) return; // ✅ 단계 불일치 시 추가 차단
+    if (selectedIds.has(Number(row.itemMasterId))) return;
 
-    setTemplateItems((prev) => {
-      const item = {
-        itemMasterId: row.itemMasterId,
-        itemOrder: nextOrder(),
-        requiredYn: "Y",
-        activeYn: "Y",
-        phase: row.phase,
-        postGroupCode: row.postGroupCode,
-        title: row.title,
-        description: row.description,
-      };
-      return [...prev, item].sort((a, b) => a.itemOrder - b.itemOrder);
-    });
+    setTemplateItems((prev) =>
+      [
+        ...prev,
+        {
+          itemMasterId: row.itemMasterId,
+          itemOrder: nextOrder(),
+          requiredYn: "Y",
+          phase: row.phase,
+          title: row.title,
+          description: row.description,
+        },
+      ].sort((a, b) => a.itemOrder - b.itemOrder)
+    );
   };
+
+  /**
+   * ✅ 템플릿 메타 정보 저장 (이름, 설명)
+   */
+  const saveTemplateMeta = async () => {
+    if (!editable) return;
+
+    try {
+      await axiosInstance.patch(
+        `/admin/checklists/templates/${templateId}/meta`, // ✅ /meta 추가
+        {
+          templateName: template.templateName,
+          description: template.description ?? null, // ✅ DTO 정합성
+        }
+      );
+
+      alert("템플릿명이 저장되었습니다.");
+    } catch (e) {
+      alert("템플릿명 저장에 실패했습니다.");
+    }
+  };
+
 
   const removeItem = (itemMasterId) => {
     if (!editable) return;
-    setTemplateItems((prev) => prev.filter((x) => x.itemMasterId !== itemMasterId));
+    setTemplateItems((prev) =>
+      prev.filter((x) => Number(x.itemMasterId) !== Number(itemMasterId))
+    );
   };
 
   const move = (idx, dir) => {
@@ -216,13 +262,11 @@ export default function AdminChecklistTemplateEditPage() {
       const ni = idx + dir;
       if (ni < 0 || ni >= arr.length) return arr;
 
-      const a = arr[idx];
-      const b = arr[ni];
-      const tmp = a.itemOrder;
-      a.itemOrder = b.itemOrder;
-      b.itemOrder = tmp;
+      const tmp = arr[idx].itemOrder;
+      arr[idx].itemOrder = arr[ni].itemOrder;
+      arr[ni].itemOrder = tmp;
 
-      return [...arr].sort((x, y) => x.itemOrder - y.itemOrder);
+      return [...arr].sort((a, b) => a.itemOrder - b.itemOrder);
     });
   };
 
@@ -230,231 +274,119 @@ export default function AdminChecklistTemplateEditPage() {
     if (!editable) return;
     setTemplateItems((prev) =>
       prev.map((x) =>
-        x.itemMasterId === itemMasterId
+        Number(x.itemMasterId) === Number(itemMasterId)
           ? { ...x, requiredYn: x.requiredYn === "Y" ? "N" : "Y" }
           : x
       )
     );
   };
 
-  const toggleActive = (itemMasterId) => {
-    if (!editable) return;
-    setTemplateItems((prev) =>
-      prev.map((x) =>
-        x.itemMasterId === itemMasterId
-          ? { ...x, activeYn: x.activeYn === "Y" ? "N" : "Y" }
-          : x
-      )
-    );
-  };
-
-  // ✅ 목록 이동: 저장 안 한 메타 변경 있으면 경고
-  const goList = () => {
-    if (dirtyMeta) {
-      const ok = confirm("저장하지 않은 변경사항(템플릿명/설명)이 있어요. 목록으로 이동할까요?");
-      if (!ok) return;
-    }
-    navigate("/admin/checklists/templates");
-  };
-
-  // ✅ A안: 구성 저장 버튼이 메타+구성 같이 저장
-  const saveAll = async () => {
-    if (!editable) {
-      alert("초안(DRAFT) 상태에서만 구성 저장이 가능합니다.");
-      return;
-    }
-
-    try {
-      setSaving(true);
-
-      // 1) 메타 변경 있으면 먼저 저장
-      if (dirtyMeta) {
-        await axiosInstance.patch(`/admin/checklists/templates/${templateId}/meta`, {
-          templateName: editName.trim(),
-          description: editDesc.trim() ? editDesc.trim() : null,
-        });
-
-        // ✅ 기준값 갱신(경고/변경 감지 해제)
-        setOriginName(editName.trim());
-        setOriginDesc(editDesc);
-      }
-
-      // 2) 구성 저장
-      const sorted = [...templateItems].sort((a, b) => a.itemOrder - b.itemOrder);
-      const body = sorted.map((x, index) => ({
-        itemMasterId: x.itemMasterId,
-        itemOrder: index + 1,
-        requiredYn: x.requiredYn,
-        activeYn: x.activeYn,
-      }));
-
-      await axiosInstance.put(`/admin/checklists/templates/${templateId}/items`, body);
-
-      // 3) 최신화
-      await fetchTemplate();      // 메타 갱신
-      await fetchTemplateItems(); // 구성 갱신
-
-      alert("전체 저장 완료 (메타 + 구성)");
-    } catch (e) {
-      alert("저장 실패");
-    } finally {
-      setSaving(false);
-    }
-  };
-
+  /* =======================
+   * 렌더링
+   * ======================= */
   const poolRows = poolPage?.content ?? [];
 
   return (
-    <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
+    <div className="container py-5">
       {/* 헤더 */}
-      <div className="d-flex align-items-center justify-content-between mb-3 flex-wrap gap-2">
+      <div className="d-flex justify-content-between align-items-start mb-3">
         <div>
-          <h2 className="fw-bold mb-1">템플릿 구성 수정</h2>
-          <div className="text-secondary small">templateId: {templateId}</div>
-        </div>
+          <input
+            type="text"
+            className={`form-control form-control-lg fw-bold px-2 ${editable
+                ? "border border-primary bg-white"
+                : "border-0 bg-transparent"
+              }`}
+            value={template?.templateName || ""}
+            disabled={!editable}
+            placeholder={editable ? "템플릿명을 입력하세요" : ""}
+            onChange={(e) =>
+              setTemplate((prev) => ({
+                ...prev,
+                templateName: e.target.value,
+              }))
+            }
+          />
 
-        <div className="d-flex gap-2 flex-wrap">
-          <button className="btn btn-outline-secondary" onClick={goList}>
-            <ArrowLeft size={16} className="me-1" />
-            목록
-          </button>
+          <div className="d-flex align-items-center gap-2 mt-1">
+            <span className={statusBadge(template?.status)}>
+              {TEMPLATE_STATUS_LABEL[template?.status]}
+            </span>
 
-          <button
-            className="btn btn-success"
-            onClick={saveAll}
-            disabled={saving || loading || !editable}
-            title={!editable ? "초안(DRAFT)에서만 저장 가능" : "전체 저장(메타+구성)"}
-          >
-            <Save size={16} className="me-1" />
-            {saving ? "저장중..." : "전체 저장"}
-          </button>
-        </div>
-      </div>
-
-      {/* ✅ 메타 패널 */}
-      <div className="border rounded-4 shadow-sm p-3 mb-4">
-        {metaLoading ? (
-          <div className="text-secondary small">템플릿 정보를 불러오는 중...</div>
-        ) : !template ? (
-          <div className="text-danger small">템플릿 정보를 가져오지 못했습니다.</div>
-        ) : (
-          <div className="row g-2 align-items-end">
-            <div className="col-md-4">
-              <label className="form-label small mb-1">템플릿명</label>
-              <input
-                className="form-control form-control-sm"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
+            {/* ✅ 상태 변경 버튼 */}
+            <div className="btn-group btn-group-sm ms-2">
+              <button
+                className="btn btn-outline-secondary"
+                disabled={template?.status === "DRAFT"}
+                onClick={() => changeTemplateStatus("DRAFT")}
+              >
+                초안
+              </button>
+              <button
+                className="btn btn-outline-success"
+                disabled={template?.status === "ACTIVE"}
+                onClick={() => changeTemplateStatus("ACTIVE")}
+              >
+                활성화
+              </button>
+              <button
+                className="btn btn-outline-dark"
+                disabled={template?.status === "RETIRED"}
+                onClick={() => changeTemplateStatus("RETIRED")}
+              >
+                비활성화
+              </button>
             </div>
-
-            <div className="col-md-3">
-              <label className="form-label small mb-1">단계</label>
-              <input
-                className="form-control form-control-sm"
-                value={PHASE_LABEL[template.phase] ?? template.phase}
-                disabled
-              />
-            </div>
-
-            <div className="col-md-2">
-              <label className="form-label small mb-1">버전</label>
-              <input className="form-control form-control-sm" value={`v${template.versionNo}`} disabled />
-            </div>
-
-            {/* ✅ 상태: 읽기 전용 */}
-            <div className="col-md-3">
-              <label className="form-label small mb-1">상태</label>
-              <input
-                className="form-control form-control-sm"
-                value={TEMPLATE_STATUS_LABEL[template.status] ?? template.status}
-                disabled
-              />
-            </div>
-
-            <div className="col-12">
-              <label className="form-label small mb-1">설명</label>
-              <input
-                className="form-control form-control-sm"
-                value={editDesc}
-                onChange={(e) => setEditDesc(e.target.value)}
-                placeholder="설명(선택)"
-              />
-            </div>
-
-            <div className="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2 mt-1">
-              <div className="text-secondary small">
-                현재 상태:{" "}
-                <span className={statusBadge(template.status)}>
-                  {TEMPLATE_STATUS_LABEL[template.status] ?? template.status}
-                </span>
-                {template.postGroupCode ? ` · 그룹: ${template.postGroupCode}` : ""}
-                {!editable && (
-                  <span className="text-danger ms-2">
-                    (현재 상태에서는 구성 편집이 잠겨있음: 초안에서만 가능)
-                  </span>
-                )}
-                {dirtyMeta && <span className="text-warning ms-2">(메타 변경됨)</span>}
-              </div>
-
-              <div className="d-flex gap-2">
-                {/* ✅ 메타 저장 버튼은 남겨둬도 됨(선택) */}
-                <button
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={saveMeta}
-                  disabled={metaSaving}
-                  title="메타만 별도로 저장"
-                >
-                  {metaSaving ? "메타 저장중..." : "메타 저장"}
-                </button>
-
-                {/* ✅ 상태 변경 */}
-                <select
-                  className="form-select form-select-sm"
-                  value={template.status}
-                  onChange={(e) => changeTemplateStatus(e.target.value)}
-                  style={{ width: 140 }}
-                  title="즉시 상태 변경"
-                >
-                  <option value="DRAFT">초안</option>
-                  <option value="ACTIVE">활성화</option>
-                  <option value="RETIRED">비활성화</option>
-                </select>
-              </div>
-            </div>
+            <button
+              className="btn btn-sm btn-primary ms-2"
+              disabled={!editable}
+              onClick={async () => {
+                await saveTemplateMeta();   // 🔹 템플릿명 저장
+                await saveTemplateItems();  // 🔹 항목 저장
+              }}
+            >
+              저장
+            </button>
           </div>
-        )}
+        </div>
+
+        <button
+          className="btn btn-outline-secondary"
+          onClick={() => navigate("/admin/checklists/templates")}
+        >
+          <ArrowLeft size={16} className="me-1" />
+          목록
+        </button>
       </div>
 
-      {error && <div className="alert alert-danger py-2">{error}</div>}
+      {error && <div className="alert alert-danger">{error}</div>}
 
       <div className="row g-3">
-        {/* 왼쪽: 현재 템플릿 구성 */}
-        <div className="col-lg-7">
+        {/* 왼쪽: 템플릿 구성 */}
+        <div className={editable ? "col-lg-7" : "col-12"}>
           <div className="border rounded-4 shadow-sm p-3">
-            <div className="d-flex align-items-end justify-content-between mb-2">
-              <div>
-                <div className="fw-bold">현재 템플릿 구성</div>
-                <div className="text-secondary small">순서 / 필수 / 숨김</div>
-              </div>
-              <div className="text-secondary small">총 {templateItems.length}개</div>
+            <div className="fw-bold mb-2">
+              현재 템플릿 구성 ({templateItems.length})
             </div>
 
             {loading ? (
-              <div className="py-4 text-center text-secondary">불러오는 중...</div>
+              <div className="text-center py-4 text-secondary">
+                불러오는 중...
+              </div>
             ) : templateItems.length === 0 ? (
-              <div className="py-4 text-center text-secondary">구성된 항목이 없습니다.</div>
+              <div className="text-center py-4 text-secondary">
+                구성된 항목이 없습니다.
+              </div>
             ) : (
               <div className="table-responsive">
                 <table className="table align-middle">
                   <thead className="table-light">
                     <tr>
-                      <th style={{ width: 70 }}>순서</th>
+                      <th style={{ width: 60 }}>순서</th>
                       <th>항목</th>
-                      <th style={{ width: 90 }}>단계</th>
-                      <th style={{ width: 90 }}>필수</th>
-                      <th style={{ width: 90 }}>표시</th>
-                      <th style={{ width: 160 }}>관리</th>
+                      <th style={{ width: 80 }}>단계</th>
+                      <th style={{ width: 100 }}>필수여부</th>
+                      <th style={{ width: 150 }}>관리</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -462,68 +394,58 @@ export default function AdminChecklistTemplateEditPage() {
                       .sort((a, b) => a.itemOrder - b.itemOrder)
                       .map((x, idx) => (
                         <tr key={x.itemMasterId}>
-                          <td className="text-secondary">{x.itemOrder}</td>
+                          <td>{x.itemOrder}</td>
                           <td>
                             <div className="fw-semibold">{x.title}</div>
-                            {x.description && <div className="text-secondary small">{x.description}</div>}
-                            <div className="text-secondary small mt-1">
-                              masterId: {x.itemMasterId} {x.postGroupCode ? `· ${x.postGroupCode}` : ""}
-                            </div>
+                            {x.description && (
+                              <div className="text-secondary small">
+                                {x.description}
+                              </div>
+                            )}
                           </td>
                           <td>
                             <span className="badge text-bg-light border">
-                              {PHASE_LABEL[x.phase] ?? x.phase}
+                              {PHASE_LABEL[x.phase]}
                             </span>
                           </td>
                           <td>
-                            <button
-                              className={`btn btn-sm ${
-                                x.requiredYn === "Y" ? "btn-success" : "btn-outline-secondary"
-                              }`}
-                              onClick={() => toggleRequired(x.itemMasterId)}
+                            <input
+                              type="checkbox"
+                              className="form-check-input"
+                              checked={x.requiredYn === "Y"}
                               disabled={!editable}
+                              onChange={() =>
+                                toggleRequired(x.itemMasterId)
+                              }
+                            />
+                          </td>
+                          <td>
+                            <button
+                              className="btn btn-sm btn-outline-secondary me-1"
+                              disabled={!editable || idx === 0}
+                              onClick={() => move(idx, -1)}
                             >
-                              {x.requiredYn === "Y" ? "필수" : "선택"}
+                              <ChevronUp size={14} />
                             </button>
-                          </td>
-                          <td>
-                            <span className={ynBadge(x.activeYn)}>{x.activeYn === "Y" ? "표시" : "숨김"}</span>
-                          </td>
-                          <td>
-                            <div className="d-flex gap-1">
-                              <button
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() => move(idx, -1)}
-                                disabled={!editable || idx === 0}
-                                title="위로"
-                              >
-                                <ChevronUp size={16} />
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() => move(idx, 1)}
-                                disabled={!editable || idx === templateItems.length - 1}
-                                title="아래로"
-                              >
-                                <ChevronDown size={16} />
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() => toggleActive(x.itemMasterId)}
-                                disabled={!editable}
-                                title="표시/숨김"
-                              >
-                                {x.activeYn === "Y" ? "숨김" : "표시"}
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => removeItem(x.itemMasterId)}
-                                disabled={!editable}
-                                title="삭제"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
+                            <button
+                              className="btn btn-sm btn-outline-secondary me-1"
+                              disabled={
+                                !editable ||
+                                idx === templateItems.length - 1
+                              }
+                              onClick={() => move(idx, 1)}
+                            >
+                              <ChevronDown size={14} />
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-danger"
+                              disabled={!editable}
+                              onClick={() =>
+                                removeItem(x.itemMasterId)
+                              }
+                            >
+                              <Trash2 size={14} />
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -535,175 +457,104 @@ export default function AdminChecklistTemplateEditPage() {
         </div>
 
         {/* 오른쪽: 항목 풀 */}
-        <div className="col-lg-5">
-          <div className="border rounded-4 shadow-sm p-3">
-            <div className="fw-bold mb-2">항목 풀에서 추가</div>
-
-            {!editable && (
-              <div className="alert alert-warning py-2 small">
-                현재 상태에서는 추가/삭제/정렬이 불가능합니다. (초안에서만 가능)
-              </div>
-            )}
-
-            {/* 필터 */}
-            <div className="row g-2 mb-2">
-              <div className="col-6">
-                <label className="form-label small mb-1">단계</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={poolPhase}
-                  onChange={(e) => {
-                    setPoolPageNo(0);
-                    setPoolPhase(e.target.value);
-                  }}
-                  disabled={!editable}
-                >
-                  <option value="">전체</option>
-                  <option value="PRE">사전</option>
-                  <option value="POST">사후</option>
-                </select>
-              </div>
-
-              <div className="col-6">
-                <label className="form-label small mb-1">그룹(사후)</label>
-                <select
-                  className="form-select form-select-sm"
-                  value={poolPostGroupCode}
-                  onChange={(e) => {
-                    setPoolPageNo(0);
-                    setPoolPostGroupCode(e.target.value);
-                  }}
-                  disabled={!editable}
-                >
-                  <option value="">전체</option>
-                  <option value="POST_A">POST_A</option>
-                  <option value="POST_B">POST_B</option>
-                  <option value="POST_C">POST_C</option>
-                  <option value="POST_D">POST_D</option>
-                </select>
-              </div>
-
-              <div className="col-12">
-                <label className="form-label small mb-1">검색</label>
-                <input
-                  className="form-control form-control-sm"
-                  value={poolKeyword}
-                  onChange={(e) => setPoolKeyword(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") setPoolPageNo(0);
-                  }}
-                  placeholder="제목 검색"
-                  disabled={!editable}
-                />
-              </div>
-
-              <div className="col-12 d-flex align-items-center justify-content-between">
-                
-                <div className="form-check">
-                  <input
-                    className="form-check-input"
-                    type="checkbox"
-                    id="onlyActive"
-                    checked={poolOnlyActive}
-                    onChange={(e) => {
+        {editable && (
+          <div className="col-lg-5">
+            <div className="border rounded-4 shadow-sm p-3">
+              {/* 단계 필터 */}
+              <div className="d-flex gap-2 mb-3">
+                {["PRE", "POST"].map((p) => (
+                  <button
+                    key={p}
+                    className={`btn btn-sm rounded-pill ${poolPhase === p
+                      ? "btn-success"
+                      : "btn-outline-secondary"
+                      }`}
+                    onClick={() => {
+                      setPoolPhase(p);
                       setPoolPageNo(0);
-                      setPoolOnlyActive(e.target.checked);
                     }}
-                    disabled={!editable}
-                  />
-                  <label className="form-check-label small" htmlFor="onlyActive">
-                    추가 가능한 항목만 보기
-                  </label>
-                </div>
-
-                <button
-                  className="btn btn-sm btn-outline-secondary ms-auto"
-                  onClick={() => {
-                    setPoolPhase("");
-                    setPoolPostGroupCode("");
-                    setPoolKeyword("");
-                    setPoolOnlyActive(true);
-                    setPoolPageNo(0);
-                  }}
-                  disabled={!editable}
-                >
-                  초기화
-                </button>
+                  >
+                    {PHASE_LABEL[p]}({p})
+                  </button>
+                ))}
               </div>
-            </div>
 
-            {poolError && <div className="alert alert-danger py-2">{poolError}</div>}
-
-            {/* 목록 */}
-            <div className="border rounded-3 p-2" style={{ maxHeight: 520, overflow: "auto" }}>
+              {/* 항목 풀 영역 */}
               {poolLoading ? (
-                <div className="py-4 text-center text-secondary">불러오는 중...</div>
-              ) : poolRows.length === 0 ? (
-                <div className="py-4 text-center text-secondary">항목이 없습니다.</div>
+                <div className="text-center py-4 text-secondary">
+                  불러오는 중...
+                </div>
+              ) : isPhaseMismatch ? (
+                /* ✅ 단계 불일치 안내 메시지 */
+                <div className="alert alert-warning mb-0">
+                  <div className="fw-semibold mb-1">단계 불일치</div>
+                  <div className="small">
+                    {template.phase === "PRE"
+                      ? "사전 체크리스트에는 사후 항목을 추가할 수 없습니다."
+                      : "사후 체크리스트에는 사전 항목을 추가할 수 없습니다."}
+                  </div>
+                </div>
               ) : (
-                poolRows.map((r) => {
-                  const disabled = !editable || selectedIds.has(r.itemMasterId);
-                  return (
-                    <div key={r.itemMasterId} className="border rounded-3 p-2 mb-2">
-                      <div className="d-flex justify-content-between gap-2">
-                        <div style={{ minWidth: 0 }}>
-                          <div className="fw-semibold text-truncate">{r.title}</div>
-                          {r.description && <div className="text-secondary small text-truncate">{r.description}</div>}
-                          <div className="text-secondary small mt-1">
-                            {PHASE_LABEL[r.phase] ?? r.phase}
-                            {r.postGroupCode ? ` · ${r.postGroupCode}` : ""} · id:{r.itemMasterId}
-                          </div>
+                <>
+                  <div className="d-flex flex-column gap-2">
+                    {poolRows.map((r) => (
+                      <div
+                        key={r.itemMasterId}
+                        className="border rounded-3 p-2 d-flex justify-content-between"
+                      >
+                        <div>
+                          <div className="fw-semibold">{r.title}</div>
+                          {r.description && (
+                            <div className="text-secondary small">
+                              {r.description}
+                            </div>
+                          )}
                         </div>
                         <button
                           className="btn btn-sm btn-success"
+                          disabled={selectedIds.has(
+                            Number(r.itemMasterId)
+                          )}
                           onClick={() => addFromPool(r)}
-                          disabled={disabled}
-                          title={
-                            !editable
-                              ? "초안(DRAFT)에서만 추가 가능"
-                              : disabled
-                              ? "이미 포함됨"
-                              : "추가"
-                          }
                         >
                           <Plus size={16} />
                         </button>
                       </div>
+                    ))}
+                  </div>
+
+                  {/* 페이징 */}
+                  <div className="d-flex justify-content-between align-items-center mt-3">
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      disabled={!poolHasPrev}
+                      onClick={() =>
+                        setPoolPageNo((prev) => prev - 1)
+                      }
+                    >
+                      이전
+                    </button>
+
+                    <div className="small text-secondary">
+                      {poolPage &&
+                        `${poolPage.number + 1} / ${poolPage.totalPages}`}
                     </div>
-                  );
-                })
+
+                    <button
+                      className="btn btn-sm btn-outline-secondary"
+                      disabled={!poolHasNext}
+                      onClick={() =>
+                        setPoolPageNo((prev) => prev + 1)
+                      }
+                    >
+                      다음
+                    </button>
+                  </div>
+                </>
               )}
             </div>
-
-            {/* 페이지네이션 */}
-            <div className="d-flex align-items-center justify-content-between mt-2">
-              <div className="text-secondary small">
-                page {(poolPage?.number ?? 0) + 1} / {poolPage?.totalPages ?? 1} · 총{" "}
-                {poolPage?.totalElements ?? 0}개
-              </div>
-              <div className="btn-group">
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  disabled={poolPage?.first || poolLoading}
-                  onClick={() => setPoolPageNo((p) => Math.max(0, p - 1))}
-                >
-                  이전
-                </button>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  disabled={poolPage?.last || poolLoading}
-                  onClick={() => setPoolPageNo((p) => p + 1)}
-                >
-                  다음
-                </button>
-              </div>
-            </div>
           </div>
-        </div>
-      </div>
-
-      <div className="text-secondary small mt-3">
-        * 구성 저장 시 순서는 1..n으로 자동 재정렬되어 저장됩니다.
+        )}
       </div>
     </div>
   );

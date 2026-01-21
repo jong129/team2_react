@@ -194,15 +194,17 @@ const Member_Mypage_Update = () => {
                     />
                   </div>
                   <div className="col-md-6">
-                    <input
-                      type="text"
-                      className="form-control rounded-pill px-3 py-2"
+                    <select
+                      className="form-select rounded-pill px-3 py-2"
                       value={reason}
                       onChange={(e) => setReason(e.target.value)}
-                      placeholder="탈퇴 사유(선택)"
-                    />
+                    >
+                      <option value="">탈퇴 사유(선택)</option>
+                      <option value="문제 해결">1. 문제 해결</option>
+                      <option value="서비스 이용 빈도 낮음">2. 서비스 이용 빈도 낮음</option>
+                      <option value="기타">3. 기타</option>
+                    </select>
                   </div>
-
                   <div className="col-12 d-grid mt-2">
                     <button
                       className="btn rounded-pill fw-bold text-white"
