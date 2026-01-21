@@ -12,6 +12,7 @@ import AdminChecklistTemplatesPage from "./components/checklist/AdminChecklistTe
 import AdminChecklistTemplateEditPage from "./components/checklist/AdminChecklistTemplateEditPage";
 import AdminPostChecklistAiPanel from "./components/checklist/AdminPostChecklistAiPanel";
 import AdminPostChecklistAiImprovePage from './components/checklist/AdminPostChecklistAiImprovePage';
+import AdminPostDecisionTestPage from './components/checklist/AdminPostDecisionTestPage';
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
@@ -72,6 +73,7 @@ function App() {
           <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
           <Route path="/admin/ai/post" element={<AdminPostChecklistAiPanel />} />
           <Route path="/admin/ai/post/improve/:templateId" element={<AdminPostChecklistAiImprovePage />} />
+          <Route path="/admin/ai/post-decision-test" element={<AdminPostDecisionTestPage />}/>
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />

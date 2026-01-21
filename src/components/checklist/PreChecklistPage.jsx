@@ -218,9 +218,6 @@ export default function PreChecklistPage() {
       // UI 선반영
       setChecks((prev) => ({ ...prev, [itemId]: nextStatus }));
 
-      // 서버 저장
-      await saveCheckStatus(session.sessionId, itemId, nextStatus);
-
       // 요약 갱신(전역 disable 없이 갱신만)
       const sum = await loadSummary(session.sessionId);
       setSummary(sum);
@@ -235,6 +232,39 @@ export default function PreChecklistPage() {
       setBusyItemId(null);
     }
   };
+
+  const handleSaveExit = async () => {
+    if (!session?.sessionId) return;
+
+    try {
+      setBusyItemId("__SAVE__");
+
+      // ⭐ 상태 스냅샷 고정
+      const snapshot = { ...checks };
+
+      await axiosInstance.patch(
+        `/checklists/pre/session/${session.sessionId}/sync`,
+        {
+          items: Object.entries(snapshot).map(([itemId, status]) => ({
+            itemId: Number(itemId),
+            checkStatus: status,
+          })),
+        }
+      );
+
+      setSavedNotice(true);
+
+      saveTimerRef.current = setTimeout(() => {
+        navigate("/checklist#checklist");
+      }, 1500);
+    } catch (e) {
+      alert("저장 중 오류가 발생했습니다.");
+    } finally {
+      setBusyItemId(null);
+    }
+  };
+
+
 
   const resetAll = async () => {
     if (!session?.sessionId) {
@@ -265,18 +295,6 @@ export default function PreChecklistPage() {
     } finally {
       setBusyItemId(null);
     }
-  };
-
-
-  // ✅ 저장 버튼 액션: 토스트 띄우고 1.5초 뒤 이동
-  const handleSaveExit = () => {
-    setSavedNotice(true);
-
-    if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-
-    saveTimerRef.current = setTimeout(() => {
-      navigate("/checklist#checklist");
-    }, 1500);
   };
 
   if (loading) {
@@ -558,6 +576,20 @@ export default function PreChecklistPage() {
                     )) return;
 
                     try {
+                      const snapshot = { ...checks };
+
+                      // 1️⃣ 최종 sync
+                      await axiosInstance.patch(
+                        `/checklists/pre/session/${session.sessionId}/sync`,
+                        {
+                          items: Object.entries(snapshot).map(([itemId, status]) => ({
+                            itemId: Number(itemId),
+                            checkStatus: status,
+                          })),
+                        }
+                      );
+
+                      // 2️⃣ 완료 처리
                       const post = await completePreSession(session.sessionId);
 
                       setPreResult({
@@ -566,9 +598,8 @@ export default function PreChecklistPage() {
                           post.postGroupCode === "POST_B"
                             ? "사전 체크리스트에서 일부 미이행 항목이 확인되어, 위험 수준의 사후 체크리스트를 제공합니다."
                             : "사전 체크리스트가 안정적으로 완료되어, 일반 사후 체크리스트를 제공합니다.",
-                        postGroupCode: post.postGroupCode
+                        postGroupCode: post.postGroupCode,
                       });
-
                     } catch (e) {
                       alert("완료 처리 중 오류가 발생했습니다.");
                     }

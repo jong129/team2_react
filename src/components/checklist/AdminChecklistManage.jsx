@@ -63,6 +63,25 @@ const AdminChecklistManage = () => {
             </button>
           </div>
         </div>
+
+        {/* AI POST 분기 검증 */}
+        <div className="col-md-4">
+          <div className="border rounded-4 p-4 shadow-sm h-100">
+            <Settings size={32} className="mb-3" color="#059669" />
+            <h5 className="fw-bold">POST 분기 AI 검증</h5>
+            <p className="text-secondary small">
+              사전 체크리스트 결과를 기준으로 AI 위험도 점수와
+              POST_A / POST_B 분기 판단 과정을 확인합니다
+            </p>
+            <button
+              className="btn btn-sm btn-success"
+              onClick={() => navigate("/admin/ai/post-decision-test")}
+            >
+              분기 테스트 열기
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   );
