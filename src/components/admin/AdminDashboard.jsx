@@ -21,11 +21,9 @@ const AdminDashboard = () => {
   const [error, setError] = useState("");
 
   const goBack = () => {
-    // 1) 직전 페이지가 있으면 뒤로
     if (window.history.length > 1) {
       navigate("/");
     } else {
-      // 2) 없으면 홈(원하면 "/home" 같은걸로 변경)
       navigate("/");
     }
   };
@@ -54,7 +52,6 @@ const AdminDashboard = () => {
     <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <div className="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4">
         <div className="d-flex align-items-center gap-3">
-          {/* 🔙 뒤로가기 버튼 */}
           <button
             type="button"
             className="btn btn-light rounded-circle d-flex align-items-center justify-content-center"
@@ -76,7 +73,6 @@ const AdminDashboard = () => {
           뒤로
         </button>
       </div>
-
 
       <div className="row g-3">
         <div className="col-md-6">
@@ -123,9 +119,9 @@ const AdminDashboard = () => {
                 </div>
                 <div className="text-secondary small mt-1">기간 조회</div>
               </div>
-            </div >
-          </button >
-        </div >
+            </div>
+          </button>
+        </div>
 
         <div className="col-md-6">
           <button
@@ -219,7 +215,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
-        {/* ✅ 추가: 체크리스트 관리 */}
+        {/* ✅ 체크리스트 관리 */}
         <div className="col-md-6">
           <button
             type="button"
@@ -246,6 +242,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
+        {/* ✅ 챗봇 대화 관리 */}
         <div className="col-md-6">
           <button
             type="button"
@@ -270,6 +267,7 @@ const AdminDashboard = () => {
           </button>
         </div>
 
+        {/* ✅ 챗봇 통계 */}
         <div className="col-md-6">
           <button
             type="button"
@@ -293,6 +291,8 @@ const AdminDashboard = () => {
             </div>
           </button>
         </div>
+
+        {/* ✅ 카테고리 */}
         <div className="col-md-6">
           <button
             type="button"
@@ -315,6 +315,8 @@ const AdminDashboard = () => {
             </div>
           </button>
         </div>
+
+        {/* ✅ 문서 관리 */}
         <div className="col-md-6">
           <button
             type="button"
@@ -333,13 +335,37 @@ const AdminDashboard = () => {
                 <div className="fw-bold fs-4" style={{ color: "#059669" }}>
                   문서 관리
                 </div>
-                <div className="text-secondary small mt-1"></div>
               </div>
             </div>
           </button>
         </div>
-      </div >
-    </div >
+
+        {/* ✅ 추가: 1:1 문의 관리 */}
+        <div className="col-md-6">
+          <button
+            type="button"
+            className="w-100 text-start border-0 shadow-sm rounded-4 p-4"
+            style={{ backgroundColor: "#f8fafc" }}
+            onClick={() => navigate("/admin/inquiries_reply")}
+          >
+            <div className="d-flex align-items-center gap-3">
+              <div
+                className="rounded-circle d-inline-flex align-items-center justify-content-center"
+                style={{ width: 52, height: 52, backgroundColor: "white" }}
+              >
+                <MessageSquareText color="#059669" />
+              </div>
+              <div>
+                <div className="fw-bold fs-4" style={{ color: "#059669" }}>
+                  1:1 문의 관리
+                </div>
+                <div className="text-secondary small mt-1">문의 목록 조회 / 답변 등록</div>
+              </div>
+            </div>
+          </button>
+        </div>
+      </div>
+    </div>
   );
 };
 

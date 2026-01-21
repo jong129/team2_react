@@ -58,7 +58,7 @@ const Member_Login = () => {
         }
       );
 
-      const { cnt, memberId, loginId: serverLoginId, name } = res.data;
+      const { cnt, memberId, loginId: serverLoginId, name, message } = res.data;
 
       switch (cnt) {
         case 0:
@@ -71,6 +71,10 @@ const Member_Login = () => {
 
         case 3:
           alert('계정이 잠겨 있습니다.');
+          return;
+
+        case 4:
+          alert(message || '탈퇴한 회원입니다.');
           return;
 
         case 1:
@@ -101,14 +105,15 @@ const Member_Login = () => {
           return;
 
         default:
-          alert('알 수 없는 로그인 오류');
+          alert(message || '알 수 없는 로그인 오류');
+          return;
       }
     } catch (e) {
       console.error(e);
       alert('서버 오류로 로그인에 실패했습니다.');
     }
   };
-
+  
   /* ==================================================
      3️⃣ 일반 로그인 버튼
   ================================================== */

@@ -11,7 +11,6 @@ const AdminCateGory = () => {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
   const [message, setMessage] = useState("");
 
   const [form, setForm] = useState({
@@ -24,6 +23,11 @@ const AdminCateGory = () => {
     likeYn: "Y",
     fileYn: "Y",
     secretYn: "N",
+
+    // AI 토글 3개
+    aiSummaryYn: "N",
+    aiSentimentYn: "N",
+    aiWriteYn: "N",
   });
 
   const [editingId, setEditingId] = useState(null);
@@ -69,6 +73,9 @@ const AdminCateGory = () => {
       likeYn: "Y",
       fileYn: "Y",
       secretYn: "N",
+      aiSummaryYn: "N",
+      aiSentimentYn: "N",
+      aiWriteYn: "N",
     });
   };
 
@@ -85,6 +92,9 @@ const AdminCateGory = () => {
       likeYn: r.likeYn ?? "Y",
       fileYn: r.fileYn ?? "Y",
       secretYn: r.secretYn ?? "N",
+      aiSummaryYn: r.aiSummaryYn ?? "N",
+      aiSentimentYn: r.aiSentimentYn ?? "N",
+      aiWriteYn: r.aiWriteYn ?? "N",
     });
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -117,6 +127,10 @@ const AdminCateGory = () => {
       likeYn: form.likeYn,
       fileYn: form.fileYn,
       secretYn: form.secretYn,
+
+      aiSummaryYn: form.aiSummaryYn,
+      aiSentimentYn: form.aiSentimentYn,
+      aiWriteYn: form.aiWriteYn,
     };
 
     try {
@@ -159,7 +173,7 @@ const AdminCateGory = () => {
     setError("");
     setMessage("");
 
-    const next = r[field] === "Y" ? "N" : "Y";
+    const next = (r?.[field] ?? "N") === "Y" ? "N" : "Y";
 
     const payload = {
       categoryName: r.categoryName,
@@ -171,6 +185,11 @@ const AdminCateGory = () => {
       likeYn: r.likeYn ?? "Y",
       fileYn: r.fileYn ?? "Y",
       secretYn: r.secretYn ?? "N",
+
+      aiSummaryYn: r.aiSummaryYn ?? "N",
+      aiSentimentYn: r.aiSentimentYn ?? "N",
+      aiWriteYn: r.aiWriteYn ?? "N",
+
       [field]: next,
     };
 
@@ -203,9 +222,6 @@ const AdminCateGory = () => {
       <div className="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-3">
         <div>
           <h2 className="fw-bold m-0">카테고리 관리</h2>
-          <div className="text-secondary small">
-            공지/뉴스는 COMMENT=N, REPORT=N / 자유게시판만 기능을 Y로 두는 식으로 운영
-          </div>
         </div>
         <button className="btn btn-outline-secondary" onClick={() => navigate("/admin/dashboard")}>
           뒤로
@@ -229,13 +245,7 @@ const AdminCateGory = () => {
 
               <div className="col-md-2">
                 <label className="form-label small text-secondary mb-1">Sort No</label>
-                <input
-                  className="form-control"
-                  type="number"
-                  name="sortNo"
-                  value={form.sortNo}
-                  onChange={onChange}
-                />
+                <input className="form-control" type="number" name="sortNo" value={form.sortNo} onChange={onChange} />
               </div>
 
               <div className="col-md-3">
@@ -256,71 +266,70 @@ const AdminCateGory = () => {
               </div>
             </div>
 
-            <div className="row g-2 align-items-center mt-3">
-              <div className="col-md-2">
-                <label className="form-label small text-secondary mb-1">VISIBLE</label>
-                <select className="form-select" name="visibleYn" value={form.visibleYn} onChange={onChange}>
-                  {ynOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+            <div className="mt-3 p-3 rounded-4" style={{ background: "#f8f9fa" }}>
+              <div className="fw-semibold mb-2">게시판 기능</div>
+              <div className="row g-2 align-items-center">
+                {[
+                  ["visibleYn", "VISIBLE"],
+                  ["commentYn", "댓글"],
+                  ["reportYn", "신고"],
+                  ["likeYn", "좋아요"],
+                  ["fileYn", "파일"],
+                  ["secretYn", "비밀글"],
+                ].map(([name, label]) => (
+                  <div className="col-md-2" key={name}>
+                    <label className="form-label small text-secondary mb-1">{label}</label>
+                    <select className="form-select" name={name} value={form[name]} onChange={onChange}>
+                      {ynOptions.map((v) => (
+                        <option key={v} value={v}>
+                          {v}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                ))}
               </div>
+            </div>
 
-              <div className="col-md-2">
-                <label className="form-label small text-secondary mb-1">댓글</label>
-                <select className="form-select" name="commentYn" value={form.commentYn} onChange={onChange}>
-                  {ynOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
+            <div className="mt-3 p-3 rounded-4" style={{ background: "#fff7e6" }}>
+              <div className="fw-semibold mb-2">AI 기능</div>
+              <div className="row g-2 align-items-center">
+                <div className="col-md-3">
+                  <label className="form-label small text-secondary mb-1">AI 요약</label>
+                  <select className="form-select" name="aiSummaryYn" value={form.aiSummaryYn} onChange={onChange}>
+                    {ynOptions.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="col-md-2">
-                <label className="form-label small text-secondary mb-1">신고</label>
-                <select className="form-select" name="reportYn" value={form.reportYn} onChange={onChange}>
-                  {ynOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="col-md-3">
+                  <label className="form-label small text-secondary mb-1">AI 호재/악재</label>
+                  <select className="form-select" name="aiSentimentYn" value={form.aiSentimentYn} onChange={onChange}>
+                    {ynOptions.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="col-md-2">
-                <label className="form-label small text-secondary mb-1">좋아요</label>
-                <select className="form-select" name="likeYn" value={form.likeYn} onChange={onChange}>
-                  {ynOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <div className="col-md-3">
+                  <label className="form-label small text-secondary mb-1">AI 글작성</label>
+                  <select className="form-select" name="aiWriteYn" value={form.aiWriteYn} onChange={onChange}>
+                    {ynOptions.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                </div>
 
-              <div className="col-md-2">
-                <label className="form-label small text-secondary mb-1">파일</label>
-                <select className="form-select" name="fileYn" value={form.fileYn} onChange={onChange}>
-                  {ynOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="col-md-2">
-                <label className="form-label small text-secondary mb-1">비밀글</label>
-                <select className="form-select" name="secretYn" value={form.secretYn} onChange={onChange}>
-                  {ynOptions.map((v) => (
-                    <option key={v} value={v}>
-                      {v}
-                    </option>
-                  ))}
-                </select>
+                <div className="col-md-3 text-secondary small">
+                  운영 팁: 뉴스는 요약/호재, 자유는 글작성만 켜는 식으로 분리하면 좋습니다.
+                </div>
               </div>
             </div>
 
@@ -353,19 +362,22 @@ const AdminCateGory = () => {
                   <th style={{ width: 90 }}>좋아요</th>
                   <th style={{ width: 90 }}>파일</th>
                   <th style={{ width: 90 }}>비밀글</th>
+                  <th style={{ width: 110 }}>AI 요약</th>
+                  <th style={{ width: 130 }}>AI호재/악재</th>
+                  <th style={{ width: 110 }}>AI 글작성</th>
                   <th style={{ width: 160 }}>기능</th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={11} className="text-center py-5 text-secondary">
+                    <td colSpan={14} className="text-center py-5 text-secondary">
                       로딩중...
                     </td>
                   </tr>
                 ) : sortedRows.length === 0 ? (
                   <tr>
-                    <td colSpan={11} className="text-center py-5 text-secondary">
+                    <td colSpan={14} className="text-center py-5 text-secondary">
                       데이터가 없습니다.
                     </td>
                   </tr>
@@ -377,63 +389,52 @@ const AdminCateGory = () => {
                       <td>{r.sortNo}</td>
                       <td>{r.writePolicy}</td>
 
+                      {[
+                        ["visibleYn", "visibleYn"],
+                        ["commentYn", "commentYn"],
+                        ["reportYn", "reportYn"],
+                        ["likeYn", "likeYn"],
+                        ["fileYn", "fileYn"],
+                        ["secretYn", "secretYn"],
+                      ].map(([field, key]) => (
+                        <td key={key}>
+                          <button
+                            className={`btn btn-sm ${r[field] === "Y" ? "btn-success" : "btn-outline-secondary"}`}
+                            onClick={() => quickToggle(r, field)}
+                            disabled={loading}
+                          >
+                            {r[field]}
+                          </button>
+                        </td>
+                      ))}
+
                       <td>
                         <button
-                          className={`btn btn-sm ${r.visibleYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
-                          onClick={() => quickToggle(r, "visibleYn")}
+                          className={`btn btn-sm ${r.aiSummaryYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
+                          onClick={() => quickToggle(r, "aiSummaryYn")}
                           disabled={loading}
                         >
-                          {r.visibleYn}
+                          {r.aiSummaryYn ?? "N"}
                         </button>
                       </td>
 
                       <td>
                         <button
-                          className={`btn btn-sm ${r.commentYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
-                          onClick={() => quickToggle(r, "commentYn")}
+                          className={`btn btn-sm ${r.aiSentimentYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
+                          onClick={() => quickToggle(r, "aiSentimentYn")}
                           disabled={loading}
                         >
-                          {r.commentYn}
+                          {r.aiSentimentYn ?? "N"}
                         </button>
                       </td>
 
                       <td>
                         <button
-                          className={`btn btn-sm ${r.reportYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
-                          onClick={() => quickToggle(r, "reportYn")}
+                          className={`btn btn-sm ${r.aiWriteYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
+                          onClick={() => quickToggle(r, "aiWriteYn")}
                           disabled={loading}
                         >
-                          {r.reportYn}
-                        </button>
-                      </td>
-
-                      <td>
-                        <button
-                          className={`btn btn-sm ${r.likeYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
-                          onClick={() => quickToggle(r, "likeYn")}
-                          disabled={loading}
-                        >
-                          {r.likeYn}
-                        </button>
-                      </td>
-
-                      <td>
-                        <button
-                          className={`btn btn-sm ${r.fileYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
-                          onClick={() => quickToggle(r, "fileYn")}
-                          disabled={loading}
-                        >
-                          {r.fileYn}
-                        </button>
-                      </td>
-
-                      <td>
-                        <button
-                          className={`btn btn-sm ${r.secretYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
-                          onClick={() => quickToggle(r, "secretYn")}
-                          disabled={loading}
-                        >
-                          {r.secretYn}
+                          {r.aiWriteYn ?? "N"}
                         </button>
                       </td>
 
@@ -442,11 +443,7 @@ const AdminCateGory = () => {
                           <button className="btn btn-sm btn-outline-primary" onClick={() => startEdit(r)} disabled={loading}>
                             수정
                           </button>
-                          <button
-                            className="btn btn-sm btn-outline-danger"
-                            onClick={() => onDelete(r.categoryId)}
-                            disabled={loading}
-                          >
+                          <button className="btn btn-sm btn-outline-danger" onClick={() => onDelete(r.categoryId)} disabled={loading}>
                             삭제
                           </button>
                         </div>

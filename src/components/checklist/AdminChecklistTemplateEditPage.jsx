@@ -26,9 +26,65 @@ function statusBadge(status) {
   }
 }
 
+// ✅ AI diff badge
+function aiBadgeClass(action) {
+  switch (action) {
+    case "IMPROVE_COPY":
+      return "badge text-bg-warning";
+    case "INSIGHT_CANDIDATE":
+      return "badge text-bg-info";
+    case "REMOVE_CANDIDATE":
+      return "badge text-bg-danger";
+    default:
+      return "";
+  }
+}
+function aiBadgeLabel(action) {
+  switch (action) {
+    case "IMPROVE_COPY":
+      return "AI 교체";
+    case "INSIGHT_CANDIDATE":
+      return "필수 승격";
+    case "REMOVE_CANDIDATE":
+      return "AI 제외";
+    default:
+      return "";
+  }
+}
+
+// ✅ description에서 baseTemplateId 파싱: "기준 템플릿 ID=123"
+function parseBaseTemplateId(desc) {
+  if (!desc) return null;
+  const m = String(desc).match(/기준\s*템플릿\s*ID\s*=\s*(\d+)/i);
+  return m ? Number(m[1]) : null;
+}
+
+// ✅ description을 화면/저장용으로 정리: "AI 개선 초안 ..." => "AI 개선 초안"
+function compactAiDesc(desc) {
+  if (!desc) return "";
+
+  const s = String(desc);
+
+  // 1) "AI 개선 초안"이 포함되어 있으면 그 문구만 남김
+  const m = s.match(/AI\s*개선\s*초안/i);
+  if (m) return "AI 개선 초안";
+
+  // 2) 아니면 [ 또는 - 같은 요약 시작 구분자 이전까지만
+  const cut = s.split("[")[0].split("-")[0].trim();
+  return cut || s.trim();
+}
+
+
 export default function AdminChecklistTemplateEditPage() {
   const navigate = useNavigate();
   const { templateId } = useParams();
+
+  // ✅ AI diff
+  const [baseTemplateId, setBaseTemplateId] = useState(null);
+  const [diffLoading, setDiffLoading] = useState(false);
+  const [diffError, setDiffError] = useState("");
+  const [diffByOrder, setDiffByOrder] = useState(new Map()); // key: itemOrder
+  const [removedDiffs, setRemovedDiffs] = useState([]); // REMOVE 목록
 
   // ✅ 템플릿 메타(단건)
   const [metaLoading, setMetaLoading] = useState(true);
@@ -72,10 +128,7 @@ export default function AdminChecklistTemplateEditPage() {
     return a !== b || c !== d;
   }, [editName, editDesc, originName, originDesc]);
 
-  const selectedIds = useMemo(
-    () => new Set(templateItems.map((x) => x.itemMasterId)),
-    [templateItems]
-  );
+  const selectedIds = useMemo(() => new Set(templateItems.map((x) => x.itemMasterId)), [templateItems]);
 
   const poolQuery = useMemo(() => {
     const params = { page: poolPageNo, size: poolSize };
@@ -87,28 +140,95 @@ export default function AdminChecklistTemplateEditPage() {
   }, [poolPageNo, poolPhase, poolPostGroupCode, poolOnlyActive, poolKeyword]);
 
   // ✅ 메타 단건 조회
+  // ✅ 메타 단건 조회
   const fetchTemplate = async () => {
     try {
       setMetaLoading(true);
-      const res = await axiosInstance.get(`/admin/checklists/templates/${templateId}`);
-      setTemplate(res.data);
 
-      const name = res.data.templateName ?? "";
-      const desc = res.data.description ?? "";
+      const res = await axiosInstance.get(`/admin/checklists/templates/${templateId}`);
+      const data = res.data;
+
+      setTemplate(data);
+
+      const name = data.templateName ?? "";
+      const descRaw = data.description ?? "";
+
+      // ✅ 기준 템플릿 ID는 원본 설명에서 파싱
+      setBaseTemplateId(parseBaseTemplateId(descRaw));
+
+      // ✅ 화면/저장용 설명은 "AI 개선 초안"만 남김
+      const descCompact = compactAiDesc(descRaw);
 
       setEditName(name);
-      setEditDesc(desc);
+      setEditDesc(descCompact);
 
-      // ✅ 기준값 갱신(변경 감지용)
+      // ✅ dirty 체크 기준값도 동일하게
       setOriginName(name);
-      setOriginDesc(desc);
+      setOriginDesc(descCompact);
     } catch (e) {
       alert("템플릿 메타 조회 실패");
       setTemplate(null);
+      setBaseTemplateId(null);
     } finally {
       setMetaLoading(false);
     }
   };
+
+
+  // ✅ AI diff 조회
+  const fetchAiDiff = async (baseId, draftId) => {
+    if (!baseId || !draftId) {
+      setDiffByOrder(new Map());
+      setRemovedDiffs([]);
+      return;
+    }
+
+    try {
+      setDiffLoading(true);
+      setDiffError("");
+
+      // ⚠️ 네 컨트롤러 경로 그대로 사용
+      const url = `/admin/ai/post/templates/post/templates/${baseId}/drafts/${draftId}/diff`;
+      const res = await axiosInstance.get(url);
+
+      const rows = Array.isArray(res.data) ? res.data : [];
+
+      const map = new Map();
+      const removes = [];
+
+      rows.forEach((r) => {
+        const order = Number(r.itemOrder ?? 0);
+        const action = r.action ?? r.signal ?? r.changeType;
+        const row = { ...r, action };
+
+        if (action === "REMOVE_CANDIDATE") {
+          removes.push(row);
+        } else if (order > 0 && action && action !== "KEEP") {
+          map.set(order, row);
+        }
+      });
+
+      setDiffByOrder(map);
+      setRemovedDiffs(removes);
+    } catch (e) {
+      setDiffError("AI 변경 요약(diff) 조회 실패");
+      setDiffByOrder(new Map());
+      setRemovedDiffs([]);
+    } finally {
+      setDiffLoading(false);
+    }
+  };
+
+  // ✅ template/baseTemplateId 준비되면 diff 호출
+  useEffect(() => {
+    if (template?.status === "DRAFT" && baseTemplateId) {
+      fetchAiDiff(baseTemplateId, Number(templateId));
+    } else {
+      setDiffByOrder(new Map());
+      setRemovedDiffs([]);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateId, baseTemplateId, template?.status]);
 
   // ✅ 템플릿 구성 조회
   const fetchTemplateItems = async () => {
@@ -230,9 +350,7 @@ export default function AdminChecklistTemplateEditPage() {
     if (!editable) return;
     setTemplateItems((prev) =>
       prev.map((x) =>
-        x.itemMasterId === itemMasterId
-          ? { ...x, requiredYn: x.requiredYn === "Y" ? "N" : "Y" }
-          : x
+        x.itemMasterId === itemMasterId ? { ...x, requiredYn: x.requiredYn === "Y" ? "N" : "Y" } : x
       )
     );
   };
@@ -241,9 +359,7 @@ export default function AdminChecklistTemplateEditPage() {
     if (!editable) return;
     setTemplateItems((prev) =>
       prev.map((x) =>
-        x.itemMasterId === itemMasterId
-          ? { ...x, activeYn: x.activeYn === "Y" ? "N" : "Y" }
-          : x
+        x.itemMasterId === itemMasterId ? { ...x, activeYn: x.activeYn === "Y" ? "N" : "Y" } : x
       )
     );
   };
@@ -257,7 +373,7 @@ export default function AdminChecklistTemplateEditPage() {
     navigate("/admin/checklists/templates");
   };
 
-  // ✅ A안: 구성 저장 버튼이 메타+구성 같이 저장
+  // ✅ 구성 저장 버튼이 메타+구성 같이 저장
   const saveAll = async () => {
     if (!editable) {
       alert("초안(DRAFT) 상태에서만 구성 저장이 가능합니다.");
@@ -274,7 +390,7 @@ export default function AdminChecklistTemplateEditPage() {
           description: editDesc.trim() ? editDesc.trim() : null,
         });
 
-        // ✅ 기준값 갱신(경고/변경 감지 해제)
+        // ✅ 기준값 갱신
         setOriginName(editName.trim());
         setOriginDesc(editDesc);
       }
@@ -291,8 +407,11 @@ export default function AdminChecklistTemplateEditPage() {
       await axiosInstance.put(`/admin/checklists/templates/${templateId}/items`, body);
 
       // 3) 최신화
-      await fetchTemplate();      // 메타 갱신
-      await fetchTemplateItems(); // 구성 갱신
+      await fetchTemplate();
+      await fetchTemplateItems();
+
+      // ✅ 저장 후 diff도 재조회(순서가 바뀌어서 배지 매칭이 달라질 수 있음)
+      if (baseTemplateId) await fetchAiDiff(baseTemplateId, Number(templateId));
 
       alert("전체 저장 완료 (메타 + 구성)");
     } catch (e) {
@@ -341,20 +460,12 @@ export default function AdminChecklistTemplateEditPage() {
           <div className="row g-2 align-items-end">
             <div className="col-md-4">
               <label className="form-label small mb-1">템플릿명</label>
-              <input
-                className="form-control form-control-sm"
-                value={editName}
-                onChange={(e) => setEditName(e.target.value)}
-              />
+              <input className="form-control form-control-sm" value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
 
             <div className="col-md-3">
               <label className="form-label small mb-1">단계</label>
-              <input
-                className="form-control form-control-sm"
-                value={PHASE_LABEL[template.phase] ?? template.phase}
-                disabled
-              />
+              <input className="form-control form-control-sm" value={PHASE_LABEL[template.phase] ?? template.phase} disabled />
             </div>
 
             <div className="col-md-2">
@@ -362,14 +473,9 @@ export default function AdminChecklistTemplateEditPage() {
               <input className="form-control form-control-sm" value={`v${template.versionNo}`} disabled />
             </div>
 
-            {/* ✅ 상태: 읽기 전용 */}
             <div className="col-md-3">
               <label className="form-label small mb-1">상태</label>
-              <input
-                className="form-control form-control-sm"
-                value={TEMPLATE_STATUS_LABEL[template.status] ?? template.status}
-                disabled
-              />
+              <input className="form-control form-control-sm" value={TEMPLATE_STATUS_LABEL[template.status] ?? template.status} disabled />
             </div>
 
             <div className="col-12">
@@ -385,30 +491,19 @@ export default function AdminChecklistTemplateEditPage() {
             <div className="col-12 d-flex align-items-center justify-content-between flex-wrap gap-2 mt-1">
               <div className="text-secondary small">
                 현재 상태:{" "}
-                <span className={statusBadge(template.status)}>
-                  {TEMPLATE_STATUS_LABEL[template.status] ?? template.status}
-                </span>
+                <span className={statusBadge(template.status)}>{TEMPLATE_STATUS_LABEL[template.status] ?? template.status}</span>
                 {template.postGroupCode ? ` · 그룹: ${template.postGroupCode}` : ""}
                 {!editable && (
-                  <span className="text-danger ms-2">
-                    (현재 상태에서는 구성 편집이 잠겨있음: 초안에서만 가능)
-                  </span>
+                  <span className="text-danger ms-2">(현재 상태에서는 구성 편집이 잠겨있음: 초안에서만 가능)</span>
                 )}
                 {dirtyMeta && <span className="text-warning ms-2">(메타 변경됨)</span>}
               </div>
 
               <div className="d-flex gap-2">
-                {/* ✅ 메타 저장 버튼은 남겨둬도 됨(선택) */}
-                <button
-                  className="btn btn-sm btn-outline-primary"
-                  onClick={saveMeta}
-                  disabled={metaSaving}
-                  title="메타만 별도로 저장"
-                >
+                <button className="btn btn-sm btn-outline-primary" onClick={saveMeta} disabled={metaSaving} title="메타만 별도로 저장">
                   {metaSaving ? "메타 저장중..." : "메타 저장"}
                 </button>
 
-                {/* ✅ 상태 변경 */}
                 <select
                   className="form-select form-select-sm"
                   value={template.status}
@@ -440,6 +535,26 @@ export default function AdminChecklistTemplateEditPage() {
               <div className="text-secondary small">총 {templateItems.length}개</div>
             </div>
 
+            {/* ✅ AI 변경 요약 */}
+            {template?.status === "DRAFT" && baseTemplateId && (
+              <div className="mb-2">
+                {diffLoading ? (
+                  <div className="text-secondary small">AI 변경 요약 불러오는 중...</div>
+                ) : diffError ? (
+                  <div className="text-danger small">{diffError}</div>
+                ) : (
+                  <div className="d-flex flex-wrap gap-2 align-items-center">
+                    <span className="badge text-bg-light border">AI 기준 템플릿: {baseTemplateId}</span>
+                    {diffByOrder.size > 0 && <span className="badge text-bg-warning">교체/승격 {diffByOrder.size}건</span>}
+                    {removedDiffs.length > 0 && <span className="badge text-bg-danger">제외 {removedDiffs.length}건</span>}
+                    {diffByOrder.size === 0 && removedDiffs.length === 0 && (
+                      <span className="text-secondary small">AI 변경 없음</span>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {loading ? (
               <div className="py-4 text-center text-secondary">불러오는 중...</div>
             ) : templateItems.length === 0 ? (
@@ -460,75 +575,109 @@ export default function AdminChecklistTemplateEditPage() {
                   <tbody>
                     {[...templateItems]
                       .sort((a, b) => a.itemOrder - b.itemOrder)
-                      .map((x, idx) => (
-                        <tr key={x.itemMasterId}>
-                          <td className="text-secondary">{x.itemOrder}</td>
-                          <td>
-                            <div className="fw-semibold">{x.title}</div>
-                            {x.description && <div className="text-secondary small">{x.description}</div>}
-                            <div className="text-secondary small mt-1">
-                              masterId: {x.itemMasterId} {x.postGroupCode ? `· ${x.postGroupCode}` : ""}
-                            </div>
-                          </td>
-                          <td>
-                            <span className="badge text-bg-light border">
-                              {PHASE_LABEL[x.phase] ?? x.phase}
-                            </span>
-                          </td>
-                          <td>
-                            <button
-                              className={`btn btn-sm ${
-                                x.requiredYn === "Y" ? "btn-success" : "btn-outline-secondary"
-                              }`}
-                              onClick={() => toggleRequired(x.itemMasterId)}
-                              disabled={!editable}
-                            >
-                              {x.requiredYn === "Y" ? "필수" : "선택"}
-                            </button>
-                          </td>
-                          <td>
-                            <span className={ynBadge(x.activeYn)}>{x.activeYn === "Y" ? "표시" : "숨김"}</span>
-                          </td>
-                          <td>
-                            <div className="d-flex gap-1">
+                      .map((x, idx) => {
+                        const diff = diffByOrder.get(x.itemOrder);
+                        return (
+                          <tr key={x.itemMasterId}>
+                            <td className="text-secondary">{x.itemOrder}</td>
+                            <td>
+                              <div className="d-flex align-items-center gap-2 flex-wrap">
+                                <div className="fw-semibold">{x.title}</div>
+
+                                {/* ✅ itemOrder 기준 AI 배지 */}
+                                {diff && (
+                                  <span className={aiBadgeClass(diff.action)} title={diff.reason ?? ""}>
+                                    {aiBadgeLabel(diff.action)}
+                                  </span>
+                                )}
+                              </div>
+
+                              {x.description && <div className="text-secondary small">{x.description}</div>}
+
+                              {/* ✅ masterId 표시 제거(원하면 다시 켜도 됨) */}
+                              {x.postGroupCode && (
+                                <div className="text-secondary small mt-1">{x.postGroupCode ? `· ${x.postGroupCode}` : ""}</div>
+                              )}
+
+                              {/* ✅ diff reason을 아래에 텍스트로도 표시(선택) */}
+                              {diff?.reason && <div className="text-secondary small mt-1">- {diff.reason}</div>}
+                            </td>
+
+                            <td>
+                              <span className="badge text-bg-light border">{PHASE_LABEL[x.phase] ?? x.phase}</span>
+                            </td>
+
+                            <td>
                               <button
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() => move(idx, -1)}
-                                disabled={!editable || idx === 0}
-                                title="위로"
-                              >
-                                <ChevronUp size={16} />
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() => move(idx, 1)}
-                                disabled={!editable || idx === templateItems.length - 1}
-                                title="아래로"
-                              >
-                                <ChevronDown size={16} />
-                              </button>
-                              <button
-                                className="btn btn-sm btn-outline-secondary"
-                                onClick={() => toggleActive(x.itemMasterId)}
+                                className={`btn btn-sm ${x.requiredYn === "Y" ? "btn-success" : "btn-outline-secondary"}`}
+                                onClick={() => toggleRequired(x.itemMasterId)}
                                 disabled={!editable}
-                                title="표시/숨김"
                               >
-                                {x.activeYn === "Y" ? "숨김" : "표시"}
+                                {x.requiredYn === "Y" ? "필수" : "선택"}
                               </button>
-                              <button
-                                className="btn btn-sm btn-outline-danger"
-                                onClick={() => removeItem(x.itemMasterId)}
-                                disabled={!editable}
-                                title="삭제"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            </td>
+
+                            <td>
+                              <span className={ynBadge(x.activeYn)}>{x.activeYn === "Y" ? "표시" : "숨김"}</span>
+                            </td>
+
+                            <td>
+                              <div className="d-flex gap-1">
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  onClick={() => move(idx, -1)}
+                                  disabled={!editable || idx === 0}
+                                  title="위로"
+                                >
+                                  <ChevronUp size={16} />
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  onClick={() => move(idx, 1)}
+                                  disabled={!editable || idx === templateItems.length - 1}
+                                  title="아래로"
+                                >
+                                  <ChevronDown size={16} />
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  onClick={() => toggleActive(x.itemMasterId)}
+                                  disabled={!editable}
+                                  title="표시/숨김"
+                                >
+                                  {x.activeYn === "Y" ? "숨김" : "표시"}
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-danger"
+                                  onClick={() => removeItem(x.itemMasterId)}
+                                  disabled={!editable}
+                                  title="삭제"
+                                >
+                                  <Trash2 size={16} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
                 </table>
+              </div>
+            )}
+
+            {/* ✅ AI가 제외한 항목 */}
+            {template?.status === "DRAFT" && baseTemplateId && removedDiffs.length > 0 && (
+              <div className="mt-3 border rounded-3 p-2">
+                <div className="fw-bold mb-2 text-danger">AI가 제외한 항목</div>
+                {removedDiffs.map((r, i) => (
+                  <div key={i} className="border rounded-3 p-2 mb-2">
+                    <div className="d-flex align-items-center gap-2 flex-wrap">
+                      <span className="badge text-bg-danger">제외</span>
+                      <div className="fw-semibold">{r.beforeTitle ?? r.title ?? `(order ${r.itemOrder})`}</div>
+                    </div>
+                    {r.reason && <div className="text-secondary small mt-1">{r.reason}</div>}
+                  </div>
+                ))}
               </div>
             )}
           </div>
@@ -598,7 +747,6 @@ export default function AdminChecklistTemplateEditPage() {
               </div>
 
               <div className="col-12 d-flex align-items-center justify-content-between">
-                
                 <div className="form-check">
                   <input
                     className="form-check-input"
@@ -651,20 +799,14 @@ export default function AdminChecklistTemplateEditPage() {
                           {r.description && <div className="text-secondary small text-truncate">{r.description}</div>}
                           <div className="text-secondary small mt-1">
                             {PHASE_LABEL[r.phase] ?? r.phase}
-                            {r.postGroupCode ? ` · ${r.postGroupCode}` : ""} · id:{r.itemMasterId}
+                            {r.postGroupCode ? ` · ${r.postGroupCode}` : ""}
                           </div>
                         </div>
                         <button
                           className="btn btn-sm btn-success"
                           onClick={() => addFromPool(r)}
                           disabled={disabled}
-                          title={
-                            !editable
-                              ? "초안(DRAFT)에서만 추가 가능"
-                              : disabled
-                              ? "이미 포함됨"
-                              : "추가"
-                          }
+                          title={!editable ? "초안(DRAFT)에서만 추가 가능" : disabled ? "이미 포함됨" : "추가"}
                         >
                           <Plus size={16} />
                         </button>
@@ -678,8 +820,7 @@ export default function AdminChecklistTemplateEditPage() {
             {/* 페이지네이션 */}
             <div className="d-flex align-items-center justify-content-between mt-2">
               <div className="text-secondary small">
-                page {(poolPage?.number ?? 0) + 1} / {poolPage?.totalPages ?? 1} · 총{" "}
-                {poolPage?.totalElements ?? 0}개
+                page {(poolPage?.number ?? 0) + 1} / {poolPage?.totalPages ?? 1} · 총 {poolPage?.totalElements ?? 0}개
               </div>
               <div className="btn-group">
                 <button
@@ -702,9 +843,7 @@ export default function AdminChecklistTemplateEditPage() {
         </div>
       </div>
 
-      <div className="text-secondary small mt-3">
-        * 구성 저장 시 순서는 1..n으로 자동 재정렬되어 저장됩니다.
-      </div>
+      <div className="text-secondary small mt-3">* 구성 저장 시 순서는 1..n으로 자동 재정렬되어 저장됩니다.</div>
     </div>
   );
 }

@@ -11,6 +11,7 @@ import AdminChecklistManage from "./components/checklist/AdminChecklistManage";
 import AdminChecklistTemplatesPage from "./components/checklist/AdminChecklistTemplatesPage";
 import AdminChecklistTemplateEditPage from "./components/checklist/AdminChecklistTemplateEditPage";
 import AdminChecklistTemplateCreatePage from "./components/checklist/AdminChecklistTemplateCreatePage";
+import AdminPostChecklistAiPanel from "./components/checklist/AdminPostChecklistAiPanel";
 import Member_Login from './components/member/member_login';
 import Member_Membership from './components/member/member_membership';
 import Member_FindId from './components/member/member_findid';
@@ -36,6 +37,8 @@ import Board from './components/board/Board';
 import BoardWrite from './components/board/BoardWrite';
 import BoardEdit from './components/board/BoardEdit';
 import BoardRead from './components/board/BoardRead';
+import Member_Inquiries from './components/member/member_inquiries';
+import Admin_inquiries_reply from './components/admin/Admin_inquiries_reply';
 
 
 function App() {
@@ -68,6 +71,7 @@ function App() {
           <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
           <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
           <Route path="/admin/checklists/templates/new" element={<AdminChecklistTemplateCreatePage />} />
+          <Route path="/admin/ai/post" element={<AdminPostChecklistAiPanel />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
@@ -89,6 +93,8 @@ function App() {
           <Route path="/board/write" element={<BoardWrite />} />
           <Route path="/board/edit/:boardId" element={<BoardEdit />} />
           <Route path="/board/read/:boardId" element={<BoardRead />} />
+          <Route path="/member/inquiries" element={<Member_Inquiries />} />
+          <Route path="/admin/inquiries_reply" element={<Admin_inquiries_reply />} />
           {/* RAG 전용 챗 페이지 */}
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
