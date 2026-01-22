@@ -148,7 +148,7 @@ export default function HistoryPage() {
   const openSession = (sessionId) => {
     if (phase === "PRE") {
       navigate("/checklist/pre", {
-        state: { sessionId }, // PRE는 그대로
+        state: { preSessionId: sessionId }, // PRE는 그대로
       });
     } else {
       navigate("/checklist/post", {
@@ -256,9 +256,8 @@ export default function HistoryPage() {
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
-          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
-            <ArrowLeft size={16} className="me-1" />
-            체크리스트 홈
+          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate(-1)}>
+            뒤로가기
           </button>
 
           <div className="d-flex align-items-center gap-2 fw-bold" style={{ color: "#059669" }}>

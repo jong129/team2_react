@@ -290,8 +290,8 @@ export default function PostChecklistPage() {
     return (
       <div className="container py-5" style={{ fontFamily: "'Pretendard', sans-serif" }}>
         <div className="p-4 rounded-5 shadow-sm border text-danger">에러: {String(error)}</div>
-        <button className="btn btn-outline-secondary mt-3" onClick={() => navigate("/checklist")}>
-          ← 체크리스트 홈
+        <button className="btn btn-outline-secondary mt-3" onClick={() => navigate(-1)}>
+          뒤로가기
         </button>
       </div>
     );
@@ -303,9 +303,8 @@ export default function PostChecklistPage() {
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
-          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
-            <ArrowLeft size={16} className="me-1" />
-            체크리스트 홈
+          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate(-1)}>
+            뒤로가기
           </button>
 
           <div className="d-flex align-items-center gap-2 fw-bold" style={{ color: "#059669" }}>
