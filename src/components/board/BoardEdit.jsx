@@ -111,7 +111,7 @@ const BoardEdit = () => {
       if (imgRef.current) imgRef.current.value = "";
       await fetchPhotos();
 
-      alert("이미지 업로드 완료 (본문에 토큰이 추가됨) — 저장을 눌러야 글에 반영됩니다.");
+      alert("이미지 업로드 완료");
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) alert("로그인이 필요합니다.");
@@ -138,7 +138,7 @@ const BoardEdit = () => {
       }));
 
       await fetchPhotos();
-      alert("이미지 삭제 완료 (저장 눌러야 본문 반영)");
+      alert("이미지 삭제 완료");
     } catch (err) {
       const status = err.response?.status;
       if (status === 401) alert("로그인이 필요합니다.");
