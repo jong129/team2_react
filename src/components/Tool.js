@@ -1,10 +1,10 @@
 import axios from 'axios';
 
 const getIP = () => {
-  return "localhost";
+  // return "localhost";
   // return "121.160.42.13"; // 팀장 학원 주소
-  //return "121.160.42.21"; 
-  //return "121.160.42.81";
+  return "121.160.42.21"; 
+  // return "121.160.42.81";
   //  return "121.160.42.28";
 }
 

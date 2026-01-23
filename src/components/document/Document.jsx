@@ -53,6 +53,20 @@ const Document = () => {
       } catch {
         // raw가 JSON이 아니면 문자열 그대로 유지
       }
+      // ✅ Spring이 내려준 "진짜 docId(예:111)"를 저장해서 MiniChatBot이 쓰게 한다
+      // data가 {docId, docType, ...} 형태이거나 {analysis: {...}, docId, docType ...} 둘 다 대응
+      const springDocId = data?.docId ?? data?.doc_id;     // docId 우선
+      const springDocType = data?.docType ?? data?.doc_type;
+
+      if (springDocId) {
+        localStorage.setItem("currentDocId", String(springDocId));
+      }
+      if (springDocType) {
+        localStorage.setItem("currentDocType", String(springDocType));
+      }
+
+      // (선택) 디버그 확인용
+      console.log("[Document] saved currentDocId/currentDocType =", springDocId, springDocType);
 
       setResult(data);
     } catch (err) {
@@ -140,19 +154,19 @@ const Document = () => {
                 riskScore == null
                   ? "secondary"
                   : riskScore <= 5
-                  ? "success"
-                  : riskScore <= 15
-                  ? "warning"
-                  : "danger";
+                    ? "success"
+                    : riskScore <= 15
+                      ? "warning"
+                      : "danger";
 
               const riskLabel =
                 riskScore == null
                   ? "미산정"
                   : riskScore <= 5
-                  ? "낮음"
-                  : riskScore <= 15
-                  ? "보통"
-                  : "높음";
+                    ? "낮음"
+                    : riskScore <= 15
+                      ? "보통"
+                      : "높음";
 
               // 점수 스케일에 맞게 조절: 지금은 0~100 가정
               const progressPct =

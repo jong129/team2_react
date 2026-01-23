@@ -361,6 +361,10 @@ export default function MiniChatbot({ isLoggedIn }) {
         sessionId,
         question: lastUser.content,
         regenerate: true,
+        docId: localStorage.getItem("currentDocId"),
+        docType: localStorage.getItem("currentDocType"),
+        stage: "document",
+        topK: 5,
       });
 
       applySessionTitle(sessionId, res.data.sessionTitle);
@@ -506,6 +510,10 @@ export default function MiniChatbot({ isLoggedIn }) {
       const startRes = await axiosInstance.post("/api/rag/ask/start", {
         sessionId: sid,
         question: q,
+        docId: localStorage.getItem("currentDocId"),
+        docType: localStorage.getItem("currentDocType"),
+        stage: "document",
+        topK: 5,
       });
       const jobId = startRes.data.jobId;  // jobId 반환
 
