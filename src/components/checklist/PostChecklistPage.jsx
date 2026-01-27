@@ -1,15 +1,15 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { ClipboardCheck, ArrowLeft } from "lucide-react";
 import { axiosInstance } from "../Tool";
 
 export default function PostChecklistPage() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { postSessionId } = useParams();
+  const numericPostSessionId = postSessionId ? Number(postSessionId) : null;
 
   const [data, setData] = useState(null);        // { sessionId, templateId, templateName, items: [...] }
   const [session, setSession] = useState(null);  // { sessionId }
-  const [summary, setSummary] = useState(null);
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -22,30 +22,13 @@ export default function PostChecklistPage() {
   const [satComment, setSatComment] = useState("");
   const [satSubmitting, setSatSubmitting] = useState(false);
 
+  const [aiReview, setAiReview] = useState(null);
+  const [reviewLoading, setReviewLoading] = useState(false);
+
   const memberId = Number(localStorage.getItem("loginMemberId")) || 0;
-
-  // ✅ PRE 완료 후 최초 진입 시 전달됨
-  const incomingPreSessionId = location?.state?.preSessionId ?? null;
-
-  // ✅ 이미 생성된 POST 세션 재진입 시 사용
-  const incomingPostSessionId = location?.state?.postSessionId ?? null;
 
   // ✅ 응답 포맷이 {data:{...}}든 {...}든 안전하게 언랩
   const unwrap = (res) => res?.data?.data ?? res?.data ?? null;
-
-  const startPostSession = async (mid, preSessionId) => {
-    const res = await axiosInstance.post(
-      "/checklists/post/session/start",
-      null,
-      {
-        params: {
-          memberId: mid,
-          preSessionId, // ✅ 반드시 전달
-        },
-      }
-    );
-    return unwrap(res);
-  };
 
   const loadPostChecklist = async (sessionId) => {
     const res = await axiosInstance.get(`/checklists/post/session/${sessionId}`);
@@ -63,10 +46,6 @@ export default function PostChecklistPage() {
     });
   };
 
-  const loadSummary = async (sessionId) => {
-    const res = await axiosInstance.get(`/checklists/post/session/${sessionId}/summary`);
-    return unwrap(res);
-  };
 
   const hydrateChecks = async (tplItems, sessId) => {
     const init = {};
@@ -106,78 +85,38 @@ export default function PostChecklistPage() {
         setError("");
 
         if (!memberId) {
-          alert("로그인이 필요합니다.");
           navigate("/login");
           return;
         }
 
-        let sess;
-
-        // 🚫 PRE/POST 기준 없이 직접 접근한 경우 차단
-        if (!incomingPreSessionId && !incomingPostSessionId) {
-          setError("잘못된 접근입니다. 사전 체크리스트 완료 후 진입해주세요.");
-          setLoading(false);
+        if (!numericPostSessionId) {
+          setError("잘못된 접근입니다.");
           return;
         }
 
-        // 1️⃣ 이미 생성된 POST 세션으로 재진입 (히스토리 / 새로고침)
-        if (incomingPostSessionId) {
-          sess = { sessionId: Number(incomingPostSessionId) };
-
-          // 2️⃣ PRE 완료 후 최초 진입 → POST 세션 생성
-        } else {
-          const created = await startPostSession(
-            memberId,
-            incomingPreSessionId // ✅ PRE 기준 명확
-          );
-
-          if (!created?.sessionId) {
-            throw new Error("POST 세션 생성 응답에 sessionId가 없습니다.");
-          }
-
-          sess = { sessionId: Number(created.sessionId) };
-
-          // ✅ POST 세션 ID를 state에 고정
-          navigate(location.pathname, {
-            replace: true,
-            state: {
-              postSessionId: sess.sessionId,
-            },
-          });
-        }
-
-        if (!alive) return;
+        const sess = { sessionId: numericPostSessionId };
         setSession(sess);
 
-        // 2) template+items 로드
+        // ✅ 1. 템플릿 + 항목만 로드 (가볍게)
         const tpl = await loadPostChecklist(sess.sessionId);
-        if (!tpl) throw new Error("체크리스트 응답이 비어있습니다.");
-
-        // ✅ items가 혹시 다른 위치에 있으면 fallback
-        const tplItems = tpl.items || tpl?.data?.items || [];
-        const normalized = { ...tpl, items: tplItems };
+        const tplItems = tpl?.items || [];
 
         if (!alive) return;
-        setData(normalized);
+        setData({ ...tpl, items: tplItems });
 
-        // 3) summary optional
-        try {
-          const sum = await loadSummary(sess.sessionId);
-          if (alive) setSummary(sum);
-        } catch {
-          if (alive) setSummary(null);
-        }
-
-        // 4) 체크맵 동기화
+        // ✅ 2. 상태 동기화 (실패 허용)
         await hydrateChecks(tplItems, sess.sessionId);
+
+        // ❌ summary는 여기서 호출하지 않음
+
       } catch (e) {
-        const msg =
-          e?.response?.data?.message ||
-          e?.response?.data?.error ||
-          e?.response?.data ||
-          e?.message ||
-          "알 수 없는 오류";
-        if (alive) setError(String(msg));
+        if (alive) {
+          setError(
+            e?.response?.data?.message ||
+            e?.message ||
+            "알 수 없는 오류"
+          );
+        }
       } finally {
         if (alive) setLoading(false);
       }
@@ -186,31 +125,31 @@ export default function PostChecklistPage() {
     return () => {
       alive = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [memberId, incomingPreSessionId, incomingPostSessionId]);
+  }, [memberId, numericPostSessionId]);
+
+  useEffect(() => {
+    if (aiReview) {
+      window.scrollTo({
+        top: document.body.scrollHeight,
+        behavior: "smooth"
+      });
+    }
+  }, [aiReview]);
 
   const progress = useMemo(() => {
     const total = data?.items?.length ?? 0;
-    const done = Object.values(checks).filter((v) => v === "DONE").length;
+    const done = Object.values(checks).filter(v => v === "DONE").length;
+    const notDone = Object.values(checks).filter(v => v === "NOT_DONE").length;
+
     const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-    return { done, total, pct };
-  }, [data, checks]);
 
-  const requiredLeft = useMemo(() => {
-    const items = data?.items || [];
-    const requiredItems = items.filter((it) => it.requiredYn === "Y");
-
-    const left = requiredItems.filter((it) => {
-      const st = checks[it.itemId] || "NOT_DONE";
-      return st === "NOT_DONE";
-    }).length;
-
-    return { requiredTotal: requiredItems.length, requiredLeft: left };
+    return { total, done, notDone, pct };
   }, [data, checks]);
 
   const canComplete = useMemo(() => {
-    return requiredLeft.requiredLeft === 0 && (data?.items?.length ?? 0) > 0;
-  }, [requiredLeft, data]);
+    return progress.notDone === 0 && progress.total > 0;
+  }, [progress]);
+
 
   const applyStatus = async (itemId, nextStatus) => {
     if (!session?.sessionId) return;
@@ -222,12 +161,6 @@ export default function PostChecklistPage() {
       setChecks((prev) => ({ ...prev, [itemId]: nextStatus }));
       await saveCheckStatus(session.sessionId, itemId, nextStatus);
 
-      try {
-        const sum = await loadSummary(session.sessionId);
-        setSummary(sum);
-      } catch (e) {
-        // summary는 선택 사항 → 실패해도 무시
-      }
     } catch (e) {
       const msg =
         e?.response?.data?.message ||
@@ -243,8 +176,8 @@ export default function PostChecklistPage() {
   const onComplete = async () => {
     if (!session?.sessionId) return;
 
-    if (!canComplete) {
-      alert("필수 항목을 먼저 완료 처리해주세요.");
+    if (progress.notDone > 0) {
+      alert("미완료 항목이 있어 완료할 수 없습니다.");
       return;
     }
 
@@ -274,6 +207,28 @@ export default function PostChecklistPage() {
       setError(String(msg));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const runAiReview = async () => {
+    if (!session?.sessionId) return;
+
+    try {
+      setReviewLoading(true);
+
+      const res = await axiosInstance.get(
+        `/checklists/post/session/${session.sessionId}/review`
+      );
+
+      setAiReview(unwrap(res));
+
+    } catch (e) {
+      alert(
+        e?.response?.data?.message ||
+        "AI 상태 분석 중 오류가 발생했습니다."
+      );
+    } finally {
+      setReviewLoading(false);
     }
   };
 
@@ -400,31 +355,53 @@ export default function PostChecklistPage() {
                 </table>
               </div>
 
-              {summary && (
-                <div className="p-4 border-top">
-                  <div className="fw-bold mb-1" style={{ color: "#059669" }}>요약</div>
-                  <div className="small text-muted">
-                    <b>{summary.level}</b> - {summary.message}
-                  </div>
-                </div>
-              )}
-
               <div className="p-4 border-top bg-white">
-                <div className="d-flex flex-wrap gap-3 align-items-center justify-content-between">
-                  <div>
-                    <div className="fw-bold mb-1" style={{ color: "#059669" }}>진행 요약</div>
-                    <div className="small text-muted">
-                      전체 진행률: <b>{progress.pct}%</b> ({progress.done}/{progress.total})
-                      <br />
-                      필수 미완료: <b>{requiredLeft.requiredLeft}</b> / {requiredLeft.requiredTotal}
+                <div className="bg-white rounded-5 shadow-sm border p-4">
+                  <div className="mb-3">
+                    <div className="fw-bold mb-2" style={{ color: "#059669" }}>
+                      진행률
                     </div>
+
+                    <div className="progress" style={{ height: 10 }}>
+                      <div
+                        className="progress-bar"
+                        role="progressbar"
+                        style={{
+                          width: `${progress.pct}%`,
+                          backgroundColor: "#059669"
+                        }}
+                        aria-valuenow={progress.pct}
+                        aria-valuemin="0"
+                        aria-valuemax="100"
+                      />
+                    </div>
+
+                    <div className="small text-muted mt-2">
+                      완료: <b>{progress.done}</b> / {progress.total}
+                    </div>
+
+                    {progress.notDone > 0 && (
+                      <div className="small text-danger mt-2">
+                        미완료 항목이 존재해 체크리스트를 완료하실 수 없어요.
+                      </div>
+                    )}
+
                   </div>
 
-                  <div className="d-flex gap-2">
+                  <div className="d-flex justify-content-end gap-2">
+
+                    <button
+                      className="btn btn-outline-emerald rounded-pill px-4"
+                      disabled={reviewLoading}
+                      onClick={runAiReview}
+                    >
+                      {reviewLoading ? "AI 분석 중..." : "AI로 현재 상태 확인하기"}
+                    </button>
+
                     <button
                       className="btn btn-outline-secondary rounded-pill px-4"
-                      disabled={saving}
                       onClick={() => navigate("/checklist")}
+                      disabled={saving}
                     >
                       나중에 할게요
                     </button>
@@ -433,21 +410,57 @@ export default function PostChecklistPage() {
                       className="btn btn-success rounded-pill px-4"
                       disabled={saving || !canComplete}
                       onClick={onComplete}
-                      title={!canComplete ? "필수 항목을 먼저 완료 처리해주세요." : ""}
                     >
                       완료하기
                     </button>
-
                   </div>
                 </div>
+                {aiReview && (
+                  <div className="mt-4 rounded-5 border shadow-sm p-4 bg-light">
 
-                {!canComplete && (
-                  <div className="small text-danger mt-2">
-                    * 필수 항목이 남아있어서 아직 완료할 수 없어요.
+                    <div className="fw-bold mb-2" style={{ color: "#059669" }}>
+                      🤖 AI 현재 상태 분석
+                    </div>
+
+                    <div className="text-muted mb-3">
+                      {aiReview.summary}
+                    </div>
+
+                    {aiReview.items && aiReview.items.length > 0 && (
+                      <ul className="list-unstyled mb-0">
+                        {aiReview.items.map((it, idx) => (
+                          <li
+                            key={it.itemId}
+                            className="mb-3 pb-3 border-bottom"
+                          >
+                            <div className="fw-semibold">
+                              {idx + 1}. {it.title}
+                            </div>
+
+                            {it.reason && (
+                              <div className="small text-muted mt-1">
+                                • 위험 사유: {it.reason}
+                              </div>
+                            )}
+
+                            {it.action && (
+                              <div className="small text-primary mt-1">
+                                • 권장 조치: {it.action}
+                              </div>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {aiReview.items?.length === 0 && (
+                      <div className="text-success small">
+                        현재 미완료 항목이 없습니다.
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
-
             </div>
           </div>
         </div>

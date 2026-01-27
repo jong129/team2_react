@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
-import { ClipboardCheck, ArrowLeft } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ClipboardCheck } from "lucide-react";
 import { axiosInstance } from "../Tool";
 
 export default function PreChecklistPage() {
   const navigate = useNavigate();
-  const location = useLocation();
+  const { sessionId } = useParams();
 
   const [data, setData] = useState(null);
   const [session, setSession] = useState(null);
@@ -20,12 +20,24 @@ export default function PreChecklistPage() {
   const [preResult, setPreResult] = useState(null);
   /*
   preResult = {
-    level: "주의 필요",
-    message: "...",
-    postGroupCode: "POST_B"
+    postGroupCode,
+    summary,
+    actions,
+    analysisItems: []   // ⭐ 전체 미이행 항목 + 중요도
   }
   */
 
+  const [calculating, setCalculating] = useState(false);
+  const [calculationDone, setCalculationDone] = useState(false);
+
+  // 자세히 보기
+  const [showDetail, setShowDetail] = useState(false);
+
+  // 카드에 보여줄 요약용 3개
+  const top3 = preResult?.analysisItems
+    ?.slice() // ⭐ 원본 배열 mutate 방지
+    .sort((a, b) => b.importanceScore - a.importanceScore)
+    .slice(0, 3);
 
   // ✅ 저장 완료 토스트
   const [savedNotice, setSavedNotice] = useState(false);
@@ -37,8 +49,7 @@ export default function PreChecklistPage() {
   // ✅ 로그인 사용자
   const memberId = Number(localStorage.getItem("loginMemberId"));
 
-  // ✅ ChecklistHome 등에서 넘어온 PRE 세션 ID
-  const incomingPreSessionId = location?.state?.preSessionId ?? null;
+  const numericSessionId = sessionId ? Number(sessionId) : null;
 
   const startSession = async (mid) => {
     const res = await axiosInstance.post("/checklists/pre/session/start", null, {
@@ -59,10 +70,11 @@ export default function PreChecklistPage() {
     return res.data;
   };
 
-  const saveCheckStatus = async (sessionId, itemId, checkStatus) => {
-    await axiosInstance.patch(`/checklists/pre/session/${sessionId}/items/${itemId}`, {
-      checkStatus,
-    });
+  const loadPreResult = async (sessionId) => {
+    const res = await axiosInstance.get(
+      `/checklists/pre/session/${sessionId}/result`
+    );
+    return res.data;
   };
 
   const resetSession = async (sessionId) => {
@@ -83,44 +95,68 @@ export default function PreChecklistPage() {
     return res.data; // ✅ 반드시 반환
   };
 
-
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError("");
 
+        // =====================================================
+        // 0️⃣ 로그인 체크
+        // =====================================================
         if (!memberId) {
           alert("로그인이 필요합니다.");
           navigate("/login");
           return;
         }
 
-        // 1️⃣ PRE 세션 확보 (이어하기 or 신규)
+        // =====================================================
+        // 1️⃣ PRE 세션 확보 (URL 기준 단일화)
+        // =====================================================
         let sess;
-        if (incomingPreSessionId) {
-          sess = { sessionId: incomingPreSessionId };
+
+        if (numericSessionId) {
+          // ✅ URL에 세션 ID가 있으면 → 무조건 해당 세션 사용
+          sess = { sessionId: numericSessionId };
         } else {
-          sess = await startSession(memberId);
+          // ✅ URL에 세션 ID가 없을 때만 신규 생성
+          const created = await startSession(memberId);
+
+          // 🔥 생성 즉시 URL 고정 (F5 대비 핵심)
+          navigate(
+            `/checklists/pre/session/${created.sessionId}`,
+            { replace: true }
+          );
+
+          // ❗ URL이 바뀌면서 useEffect가 다시 실행되므로
+          //    여기서 더 진행하면 중복 호출됨 → 즉시 종료
+          return;
         }
+
         setSession(sess);
 
-        // 2️⃣ 🔥 세션 기준 단일 데이터 조회 (핵심)
-        const sessionData = await axiosInstance.get(
-          `/checklists/pre/session/${sess.sessionId}`
-        ).then(res => res.data);
+        // =====================================================
+        // 2️⃣ 세션 기준 단일 데이터 조회
+        // =====================================================
+        const sessionData = await axiosInstance
+          .get(`/checklists/pre/session/${sess.sessionId}`)
+          .then(res => res.data);
 
         // sessionData = { sessionId, templateId, items: [...] }
         setData(sessionData);
 
+        // =====================================================
         // 3️⃣ 체크 상태 초기화 (CHECKLIST_ITEM_ID 기준)
+        // =====================================================
         const initChecks = {};
         (sessionData.items || []).forEach(it => {
           initChecks[it.itemId] = it.checkStatus ?? "NOT_DONE";
         });
         setChecks(initChecks);
 
+        // =====================================================
         // 4️⃣ 요약 조회
+        // =====================================================
         const sum = await loadSummary(sess.sessionId);
         setSummary(sum);
 
@@ -135,8 +171,7 @@ export default function PreChecklistPage() {
         setLoading(false);
       }
     })();
-  }, [navigate, memberId, incomingPreSessionId]);
-
+  }, [navigate, memberId, numericSessionId]);
 
   const progress = useMemo(() => {
     const total = data?.items?.length ?? 0;
@@ -150,56 +185,6 @@ export default function PreChecklistPage() {
     return { done, total, pct };
   }, [data, checks]);
 
-  // ✅ 영역별 진행 요약
-  const areaStats = useMemo(() => {
-    const items = data?.items || [];
-    const map = new Map();
-
-    const normArea = (a) => (a && String(a).trim() ? a : "기타");
-
-    for (const it of items) {
-      const area = normArea(it.checkArea);
-      if (!map.has(area)) {
-        map.set(area, {
-          area,
-          total: 0,
-          done: 0,
-          requiredTotal: 0,
-          requiredNotDone: 0,
-          requiredNotDoneItems: [],
-        });
-      }
-      const stat = map.get(area);
-
-      stat.total += 1;
-
-      const st = checks?.[it.itemId] || "NOT_DONE";
-      if (st === "DONE") stat.done += 1;
-
-      const isReq = it.requiredYn === "Y" || it.required === true;
-      if (isReq) {
-        stat.requiredTotal += 1;
-        if (st !== "DONE") {
-          stat.requiredNotDone += 1;
-          stat.requiredNotDoneItems.push({ itemId: it.itemId, title: it.title });
-        }
-      }
-    }
-
-    const order = ["등기부 권리 점검", "선순위 관계 점검", "시세·금액 점검", "건물·법적 사항 점검", "기타"];
-    const arr = Array.from(map.values());
-    arr.sort(
-      (a, b) =>
-        (order.indexOf(a.area) - order.indexOf(b.area)) ||
-        a.area.localeCompare(b.area)
-    );
-
-    arr.forEach((x) => {
-      x.pct = x.total === 0 ? 0 : Math.round((x.done / x.total) * 100);
-    });
-
-    return arr;
-  }, [data, checks]);
 
   // ✅ 번쩍임 방지: 클릭한 행만 잠깐 잠금
   const applyStatus = async (itemId, nextStatus) => {
@@ -483,7 +468,65 @@ export default function PreChecklistPage() {
           {/* 요약 + 진행률 + 버튼 */}
           <div className="mt-4 mx-auto" style={{ maxWidth: 920 }}>
             {/* ✅ 사전 점검 완료 후 결과 카드 */}
-            {preResult && (
+            {calculating && (
+              <div className="mb-4 mx-auto text-center" style={{ maxWidth: 920 }}>
+                <div className="border rounded-5 p-4 shadow-sm bg-white">
+                  <div className="spinner-border text-success mb-3" />
+                  <div className="fw-bold">
+                    사전 체크리스트 점수를 계산중입니다
+                  </div>
+                  <div className="text-muted small mt-1">
+                    잠시만 기다려 주세요
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {showDetail && preResult && (
+              <div className="position-fixed top-0 start-0 w-100 h-100"
+                style={{ background: "rgba(0,0,0,0.4)", zIndex: 3000 }}>
+                <div
+                  className="bg-white rounded-4 p-4 shadow-lg"
+                  style={{
+                    maxWidth: 600,
+                    margin: "10vh auto",
+                    maxHeight: "70vh",
+                    overflowY: "auto"
+                  }}
+                >
+                  <div className="fw-bold mb-3">
+                    미이행 항목 상세 분석
+                  </div>
+
+                  {preResult.analysisItems.map(item => (
+                    <div key={item.itemId} className="mb-3 pb-2 border-bottom">
+
+                      {/* 항목 제목 + 중요도 */}
+                      <div className="fw-semibold">
+                        {item.title} · 중요도 {(item.importanceScore * 100).toFixed(0)}%
+                      </div>
+
+                      {/* AI 근거 */}
+                      <div className="text-muted small mt-1">
+                        {item.reason}
+                      </div>
+
+                    </div>
+                  ))}
+
+                  <div className="text-end mt-3">
+                    <button
+                      className="btn btn-outline-secondary rounded-pill"
+                      onClick={() => setShowDetail(false)}
+                    >
+                      닫기
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {calculationDone && preResult && (
               <div className="mb-4 mx-auto" style={{ maxWidth: 920 }}>
                 <div
                   className={`border rounded-5 p-4 shadow-sm ${preResult.postGroupCode === "POST_B"
@@ -497,23 +540,78 @@ export default function PreChecklistPage() {
                       : "✅ 사전 점검 완료"}
                   </div>
 
+                  {/* ✅ 요약 문장 */}
                   <div className="text-secondary mb-3">
-                    {preResult.message}
+                    {preResult.summary}
                   </div>
+
+                  {/* ✅ 중요 미이행 항목 TOP 3 */}
+                  {top3 && top3.length > 0 && (
+                    <div className="mb-3">
+                      <div className="fw-semibold mb-2">
+                        특히 확인이 필요한 항목
+                      </div>
+
+                      <ul className="list-unstyled mb-0">
+                        {top3.map((item, idx) => (
+                          <li key={item.itemId} className="mb-2">
+                            <span className="fw-bold me-2">
+                              {idx + 1}.
+                            </span>
+                            <span className="text-muted">
+                              {item.reason}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {/* 🔎 자세히 보기 버튼 */}
+                      <div className="text-end mt-2">
+                        <button
+                          className="btn btn-sm btn-outline-secondary rounded-pill"
+                          onClick={() => setShowDetail(true)}
+                        >
+                          자세히 보기
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="text-center">
                     <button
                       className={`btn rounded-pill fw-bold px-4 ${preResult.postGroupCode === "POST_B"
-                        ? "btn-danger"
-                        : "btn-emerald text-white"
+                          ? "btn-danger"
+                          : "btn-emerald text-white"
                         }`}
-                      onClick={() => {
-                        // ✅ 사전 세션 ID를 반드시 state로 전달
-                        navigate("/checklist/post", {
-                          state: {
-                            preSessionId: session.sessionId, // ⭐ 핵심
-                          },
-                        });
+                      onClick={async () => {
+                        try {
+                          // ✅ POST 세션 생성
+                          const res = await axiosInstance.post(
+                            "/checklists/post/session/start",
+                            null,
+                            {
+                              params: {
+                                memberId,
+                                preSessionId: session.sessionId,
+                              },
+                            }
+                          );
+
+                          const postSessionId = res.data.sessionId;
+
+                          if (!postSessionId) {
+                            throw new Error("POST 세션 생성 실패");
+                          }
+
+                          // ✅ URL 기반 이동 (location.state 사용 ❌)
+                          navigate(`/checklists/post/session/${postSessionId}`);
+                        } catch (e) {
+                          alert(
+                            e?.response?.data?.message ||
+                            e?.message ||
+                            "사후 체크리스트로 이동 중 오류"
+                          );
+                        }
                       }}
                     >
                       사후 체크리스트로 이동
@@ -570,37 +668,41 @@ export default function PreChecklistPage() {
                     summary?.requiredNotDone > 0
                   }
                   onClick={async () => {
-                    if (!window.confirm(
-                      "사전 체크리스트를 완료하시겠어요?\n완료하면 결과가 확정됩니다."
-                    )) return;
+                    if (!window.confirm("사전 체크리스트를 완료하시겠어요?")) return;
 
                     try {
-                      const snapshot = { ...checks };
+                      setCalculating(true);       // ⭐ 1️⃣ 계산 시작 UI
+                      setCalculationDone(false);
 
                       // 1️⃣ 최종 sync
                       await axiosInstance.patch(
                         `/checklists/pre/session/${session.sessionId}/sync`,
                         {
-                          items: Object.entries(snapshot).map(([itemId, status]) => ({
+                          items: Object.entries(checks).map(([itemId, status]) => ({
                             itemId: Number(itemId),
                             checkStatus: status,
-                          })),
+                          }))
                         }
                       );
 
                       // 2️⃣ 완료 처리
-                      const post = await completePreSession(session.sessionId);
+                      await completePreSession(session.sessionId);
+
+                      // 3️⃣ AI 결과 조회 (FastAPI 포함)
+                      const result = await loadPreResult(session.sessionId);
 
                       setPreResult({
-                        level: post.postGroupCode === "POST_B" ? "주의 필요" : "점검 완료",
-                        message:
-                          post.postGroupCode === "POST_B"
-                            ? "사전 체크리스트에서 일부 미이행 항목이 확인되어, 위험 수준의 사후 체크리스트를 제공합니다."
-                            : "사전 체크리스트가 안정적으로 완료되어, 일반 사후 체크리스트를 제공합니다.",
-                        postGroupCode: post.postGroupCode,
+                        postGroupCode: result.postGroupCode,
+                        summary: result.riskExplanation.summary,
+                        actions: result.riskExplanation.actions,
+                        analysisItems: result.riskAnalysisItems, // ⭐ 핵심
                       });
+
+                      setCalculationDone(true);   // ⭐ 2️⃣ 계산 완료
                     } catch (e) {
-                      alert("완료 처리 중 오류가 발생했습니다.");
+                      alert("결과 계산 중 오류가 발생했습니다.");
+                    } finally {
+                      setCalculating(false);
                     }
                   }}
                 >
@@ -618,6 +720,8 @@ export default function PreChecklistPage() {
         .btn-outline-emerald { border: 1px solid #059669; color: #059669; transition: all 0.3s; }
         .btn-outline-emerald:hover { background-color: #059669; color: white; }
       `}</style>
+
+
     </div>
   );
 }

@@ -105,7 +105,7 @@ export default function ChecklistHome() {
       if (hasProgress) {
         setShowPreChoice(true);
       } else {
-        navigate("/checklist/pre", { state: { sessionId: sid } });
+        navigate(`/checklists/pre/session/${sid}`);
       }
     } catch (e) {
       const msg =
@@ -156,7 +156,7 @@ export default function ChecklistHome() {
         throw new Error("POST start 응답에 sessionId가 없습니다.");
       }
 
-      navigate("/checklist/post", { state: { sessionId: sid } });
+      navigate(`/checklists/post/session/${sid}`);
 
     } catch (e) {
       const msg =
@@ -174,7 +174,7 @@ export default function ChecklistHome() {
   // ✅ 이어서 하기
   const handlePreContinue = async () => {
     if (!preSessionId) return;
-    navigate("/checklist/pre", { state: { sessionId: preSessionId } });
+    navigate(`/checklists/pre/session/${preSessionId}`);
   };
 
   // ✅ 새로 작성하기 = 무조건 새 세션
@@ -196,9 +196,7 @@ export default function ChecklistHome() {
       setShowPreChoice(false);
       setPreSessionId(newSessionId);
 
-      navigate("/checklist/pre", {
-        state: { sessionId: newSessionId },
-      });
+      navigate(`/checklists/pre/session/${newSessionId}`);
     } catch (e) {
       const msg =
         e?.response?.data?.message ||

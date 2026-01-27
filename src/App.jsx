@@ -65,9 +65,10 @@ function App() {
         <Routes>
           <Route path='/' element={<Home isLoggedIn={isLoggedIn} />} />
           <Route path='/checklist' element={<ChecklistHome />} />
-          <Route path='/checklist/pre' element={<PreChecklistPage />} />
+          <Route path="/checklists/pre/session" element={<PreChecklistPage />} />
+          <Route path="/checklists/pre/session/:sessionId" element={<PreChecklistPage />} />
           <Route path="/checklist/history" element={<HistoryPage />} />
-          <Route path="/checklist/post" element={<PostChecklistPage />} />
+          <Route path="/checklists/post/session/:postSessionId" element={<PostChecklistPage />} />
           <Route path="/admin/checklist" element={<AdminChecklistManage />} />
           <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
           <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
