@@ -40,6 +40,7 @@ import BoardEdit from './components/board/BoardEdit';
 import BoardRead from './components/board/BoardRead';
 import Member_Inquiries from './components/member/member_inquiries';
 import Admin_inquiries_reply from './components/admin/Admin_inquiries_reply';
+import AdminReportLog from "./components/admin/AdminReportLog";
 
 
 function App() {
@@ -98,6 +99,8 @@ function App() {
           <Route path="/board/read/:boardId" element={<BoardRead />} />
           <Route path="/member/inquiries" element={<Member_Inquiries />} />
           <Route path="/admin/inquiries_reply" element={<Admin_inquiries_reply />} />
+          <Route path="/admin/reports" element={<AdminReportLog />} />
+          
           {/* RAG 전용 챗 페이지 */}
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
