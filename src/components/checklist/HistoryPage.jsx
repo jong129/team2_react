@@ -256,7 +256,7 @@ export default function HistoryPage() {
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
-          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate(-1)}>
+          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
             뒤로가기
           </button>
 

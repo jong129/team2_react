@@ -301,7 +301,7 @@ export default function PreChecklistPage() {
           <div className="p-4 rounded-5 shadow-sm border text-danger">
             에러: {String(error)}
           </div>
-          <button className="btn btn-outline-secondary mt-3" onClick={() => navigate(-1)}>
+          <button className="btn btn-outline-secondary mt-3" onClick={() => navigate("/checklist")}>
             뒤로가기
           </button>
         </div>
@@ -340,7 +340,7 @@ export default function PreChecklistPage() {
       {/* 상단 바 */}
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
-          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate(-1)}>
+          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
             뒤로가기
           </button>
 
