@@ -46,6 +46,9 @@ export default function PreChecklistPage() {
   // ✅ 전역 saving 대신: 클릭한 행만 잠깐 잠그기(번쩍임 방지)
   const [busyItemId, setBusyItemId] = useState(null);
 
+  // POST 세션 생성 중 여부 (중복 방지)
+  const [startingPost, setStartingPost] = useState(false);
+
   // ✅ 로그인 사용자
   const memberId = Number(localStorage.getItem("loginMemberId"));
 
@@ -261,17 +264,26 @@ export default function PreChecklistPage() {
       setError("");
       setBusyItemId("__RESET__");
 
+      // ✅ [A-1] 이전 사전 결과 UI 상태 초기화
+      setPreResult(null);
+      setCalculationDone(false);
+      setShowDetail(false);
+
+      // 1️⃣ 서버 세션 초기화
       await resetSession(session.sessionId);
 
+      // 2️⃣ 세션 데이터 재조회
       const sessionData = await loadSession(session.sessionId);
       setData(sessionData);
 
+      // 3️⃣ 체크 상태 초기화
       const initChecks = {};
       (sessionData.items || []).forEach(it => {
         initChecks[it.itemId] = it.checkStatus ?? "NOT_DONE";
       });
       setChecks(initChecks);
 
+      // 4️⃣ 요약 재조회
       const sum = await loadSummary(session.sessionId);
       setSummary(sum);
 
@@ -281,6 +293,7 @@ export default function PreChecklistPage() {
       setBusyItemId(null);
     }
   };
+
 
   if (loading) {
     return (
@@ -319,7 +332,7 @@ export default function PreChecklistPage() {
     );
   }
 
-  const isBusy = busyItemId !== null;
+  const isBusy = calculating || busyItemId !== null;
 
   return (
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
@@ -580,12 +593,14 @@ export default function PreChecklistPage() {
                   <div className="text-center">
                     <button
                       className={`btn rounded-pill fw-bold px-4 ${preResult.postGroupCode === "POST_B"
-                          ? "btn-danger"
-                          : "btn-emerald text-white"
+                        ? "btn-danger"
+                        : "btn-emerald text-white"
                         }`}
+                      disabled={startingPost}
                       onClick={async () => {
                         try {
-                          // ✅ POST 세션 생성
+                          setStartingPost(true); // ✅ 중복 클릭 방지
+
                           const res = await axiosInstance.post(
                             "/checklists/post/session/start",
                             null,
@@ -603,7 +618,6 @@ export default function PreChecklistPage() {
                             throw new Error("POST 세션 생성 실패");
                           }
 
-                          // ✅ URL 기반 이동 (location.state 사용 ❌)
                           navigate(`/checklists/post/session/${postSessionId}`);
                         } catch (e) {
                           alert(
@@ -611,10 +625,12 @@ export default function PreChecklistPage() {
                             e?.message ||
                             "사후 체크리스트로 이동 중 오류"
                           );
+                        } finally {
+                          setStartingPost(false);
                         }
                       }}
                     >
-                      사후 체크리스트로 이동
+                      {startingPost ? "이동 중..." : "사후 체크리스트로 이동"}
                     </button>
                   </div>
                 </div>

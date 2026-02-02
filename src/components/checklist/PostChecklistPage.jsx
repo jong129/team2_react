@@ -48,16 +48,22 @@ export default function PostChecklistPage() {
 
 
   const hydrateChecks = async (tplItems, sessId) => {
-    const init = {};
-    (tplItems || []).forEach((it) => (init[it.itemId] = "NOT_DONE"));
-
     const statuses = await loadStatuses(sessId);
-    (statuses || []).forEach((s) => {
-      init[s.itemId] = s.checkStatus;
-    });
 
-    setChecks(init);
+    setChecks(prev => {
+      const next = { ...prev };
+
+      (statuses || []).forEach(s => {
+        // ✅ 이미 사용자가 바꾼 값은 존중
+        if (next[s.itemId] == null || next[s.itemId] === "NOT_DONE") {
+          next[s.itemId] = s.checkStatus;
+        }
+      });
+
+      return next;
+    });
   };
+
 
   const completeSession = async (sessionId) => {
     await axiosInstance.patch(`/checklists/post/session/${sessionId}/complete`);
@@ -97,17 +103,24 @@ export default function PostChecklistPage() {
         const sess = { sessionId: numericPostSessionId };
         setSession(sess);
 
-        // ✅ 1. 템플릿 + 항목만 로드 (가볍게)
+        // 1️⃣ 템플릿 + 항목만 로드
         const tpl = await loadPostChecklist(sess.sessionId);
         const tplItems = tpl?.items || [];
 
         if (!alive) return;
+
         setData({ ...tpl, items: tplItems });
 
-        // ✅ 2. 상태 동기화 (실패 허용)
-        await hydrateChecks(tplItems, sess.sessionId);
+        // ✅ 기본 체크 상태 먼저 세팅
+        const init = {};
+        tplItems.forEach(it => init[it.itemId] = "NOT_DONE");
+        setChecks(init);
 
-        // ❌ summary는 여기서 호출하지 않음
+        // ✅ 항목만 있으면 바로 화면 표시
+        setLoading(false);
+
+        // 2️⃣ 상태는 뒤에서 비동기
+        hydrateChecks(tplItems, sess.sessionId);
 
       } catch (e) {
         if (alive) {
@@ -117,8 +130,6 @@ export default function PostChecklistPage() {
             "알 수 없는 오류"
           );
         }
-      } finally {
-        if (alive) setLoading(false);
       }
     })();
 
@@ -126,6 +137,7 @@ export default function PostChecklistPage() {
       alive = false;
     };
   }, [memberId, numericPostSessionId]);
+
 
   useEffect(() => {
     if (aiReview) {
