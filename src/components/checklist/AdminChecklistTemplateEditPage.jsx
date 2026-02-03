@@ -354,8 +354,7 @@ export default function AdminChecklistTemplateEditPage() {
           className="btn btn-outline-secondary"
           onClick={() => navigate("/admin/checklists/templates")}
         >
-          <ArrowLeft size={16} className="me-1" />
-          목록
+          뒤로
         </button>
       </div>
 

@@ -258,7 +258,7 @@ export default function AdminChecklistTemplatesPage() {
                     >
                       수정
                     </button>
-                    {r.phase !== "PRE" && (
+                    {r.phase !== "PRE" && r.versionNo !== 1 && (
                       <button
                         className="btn btn-sm btn-outline-danger"
                         disabled={busyId === r.templateId}

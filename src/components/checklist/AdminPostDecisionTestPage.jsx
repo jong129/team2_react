@@ -156,7 +156,6 @@ export default function AdminPostDecisionTestPage() {
           className="btn btn-outline-secondary"
           onClick={() => navigate(-1)}
         >
-          <ArrowLeft size={16} className="me-1" />
           뒤로
         </button>
       </div>
@@ -299,7 +298,7 @@ export default function AdminPostDecisionTestPage() {
               <div>
                 <div className="text-muted small">riskScoreSum</div>
                 <div className="fw-bold">
-                  {Number(result.riskScoreSum).toFixed(2)}
+                  {result.riskScoreSum} 점
                 </div>
               </div>
 
@@ -328,9 +327,9 @@ export default function AdminPostDecisionTestPage() {
                   <tr key={s.itemId}>
                     <td>{s.itemId}</td>
                     <td className="text-start px-3">{s.title}</td>
-                    <td>{Number(s.importanceScore).toFixed(3)}</td>
+                    <td>{s.importanceScore}</td>
                     <td>
-                      {s.importanceScore >= 0.8 ? (
+                      {s.importanceScore >= 80 ? (
                         <span className="badge bg-danger">HIGH</span>
                       ) : (
                         <span className="badge bg-secondary">NORMAL</span>

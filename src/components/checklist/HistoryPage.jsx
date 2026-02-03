@@ -59,15 +59,6 @@ export default function HistoryPage() {
     return res.data; // PageResponseDTO 또는 Page 객체(백엔드에 맞춤)
   };
 
-  // ✅ 완료 처리: PRE는 기존 API 유지 / POST는 우리가 만든 complete 사용
-  const completeSession = async (sessionId) => {
-    if (phase === "PRE") {
-      await axiosInstance.post(`/checklists/pre/session/${sessionId}/complete`, null, { params: { memberId } });
-      return;
-    }
-    await axiosInstance.patch(`/checklists/post/session/${sessionId}/complete`);
-  };
-
   // ✅ 삭제 처리: POST 삭제 API 없으면 우선 PRE만 살리고, POST는 나중에 추가 가능
   const deleteSession = async (sessionId) => {
     if (phase === "PRE") {
@@ -147,14 +138,12 @@ export default function HistoryPage() {
 
   const openSession = (sessionId) => {
     if (phase === "PRE") {
-      navigate("/checklist/pre", {
-        state: { preSessionId: sessionId }, // PRE는 그대로
+      navigate(`/checklists/pre/session/${sessionId}`, {
+        state: { from: "HISTORY" },
       });
     } else {
-      navigate("/checklist/post", {
-        state: {
-          postSessionId: sessionId, // ✅ 핵심
-        },
+      navigate(`/checklists/post/session/${sessionId}`, {
+        state: { from: "HISTORY" },
       });
     }
   };
@@ -183,20 +172,21 @@ export default function HistoryPage() {
   };
 
   const handleComplete = async (sessionId) => {
+    // ✅ PRE에서는 완료 처리 금지
+    if (phase === "PRE") {
+      alert("사전 체크리스트 완료는 상세 화면에서만 가능합니다.");
+      return;
+    }
+
     if (!window.confirm("이 기록을 완료 처리할까요?")) return;
 
     try {
       setBusyId(sessionId);
 
-      await completeSession(sessionId);
+      // ✅ POST 완료 처리
+      await axiosInstance.patch(`/checklists/post/session/${sessionId}/complete`);
 
-      // ✅ PRE는 기존대로 끝
-      if (phase === "PRE") {
-        await refresh();
-        return;
-      }
-
-      // ✅ POST는 만족도 이미 있으면 그냥 refresh
+      // ✅ 만족도 이미 있으면 바로 refresh
       const existing = await loadSatisfaction(sessionId);
       if (existing && existing.rating) {
         await refresh();
@@ -256,7 +246,7 @@ export default function HistoryPage() {
     <div className="bg-white overflow-hidden" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
-          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate(-1)}>
+          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
             뒤로가기
           </button>
 
@@ -415,17 +405,6 @@ export default function HistoryPage() {
                                   <FolderOpen size={16} className="me-1" />
                                   열기
                                 </button>
-
-                                {phase === "PRE" && !completed && (
-                                  <button
-                                    className="btn btn-sm btn-outline-emerald rounded-pill fw-bold"
-                                    onClick={() => handleComplete(it.sessionId)}
-                                    disabled={isBusy}
-                                  >
-                                    <CheckCircle2 size={16} className="me-1" />
-                                    완료
-                                  </button>
-                                )}
 
                                 {canDelete && (
                                   <button

@@ -270,25 +270,6 @@ export default function AdminPostChecklistAiPanel() {
                     </div>
                   </div>
 
-                  <div className="d-flex flex-column gap-2 mb-3">
-                    {analysis?.recentComments?.length === 0 ? (
-                      <div className="text-secondary small">
-                        아직 등록된 만족도 코멘트가 없습니다.
-                      </div>
-                    ) : (
-                      analysis?.recentComments?.map((c, idx) => (
-                        <div key={idx} className="border rounded-3 p-3">
-                          <div className="fw-semibold mb-1">
-                            ⭐ {c.score}점
-                          </div>
-                          <div className="small text-secondary">
-                            {c.comment}
-                          </div>
-                        </div>
-                      ))
-                    )}
-                  </div>
-
                   <div className="d-flex flex-column gap-2">
 
                     {/* 사용자 만족도 요약 보기 */}
