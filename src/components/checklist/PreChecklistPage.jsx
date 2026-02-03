@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { ClipboardCheck } from "lucide-react";
 import { axiosInstance } from "../Tool";
 
 export default function PreChecklistPage() {
   const navigate = useNavigate();
-  const { sessionId } = useParams();
+  const { sessionId: paramSessionId } = useParams();
+  const location = useLocation();
 
   const [data, setData] = useState(null);
   const [session, setSession] = useState(null);
@@ -16,16 +17,10 @@ export default function PreChecklistPage() {
 
   const [checks, setChecks] = useState({});
 
+  const isCompleted = data && data.status === "COMPLETED";
+  
   // ✅ 사전 체크 완료 후 결과 표시용
   const [preResult, setPreResult] = useState(null);
-  /*
-  preResult = {
-    postGroupCode,
-    summary,
-    actions,
-    analysisItems: []   // ⭐ 전체 미이행 항목 + 중요도
-  }
-  */
 
   const [calculating, setCalculating] = useState(false);
   const [calculationDone, setCalculationDone] = useState(false);
@@ -52,7 +47,11 @@ export default function PreChecklistPage() {
   // ✅ 로그인 사용자
   const memberId = Number(localStorage.getItem("loginMemberId"));
 
-  const numericSessionId = sessionId ? Number(sessionId) : null;
+  // 1️⃣ URL param 우선
+  // 2️⃣ history에서 넘어온 state
+  const resolvedSessionId = paramSessionId ? Number(paramSessionId) : location.state?.preSessionId
+    ? Number(location.state.preSessionId)
+    : null;
 
   const startSession = async (mid) => {
     const res = await axiosInstance.post("/checklists/pre/session/start", null, {
@@ -82,6 +81,17 @@ export default function PreChecklistPage() {
 
   const resetSession = async (sessionId) => {
     await axiosInstance.post(`/checklists/pre/session/${sessionId}/reset`);
+  };
+
+  const goBack = () => {
+    // 1️⃣ 기록보기에서 열었을 경우
+    if (location.state?.from === "HISTORY") {
+      navigate("/checklist/history", { state: { phase: "PRE" } });
+      return;
+    }
+
+    // 2️⃣ 기본: 체크리스트 메인
+    navigate("/checklist");
   };
 
   // ✅ 언마운트 시 타이머 정리
@@ -118,21 +128,27 @@ export default function PreChecklistPage() {
         // =====================================================
         let sess;
 
-        if (numericSessionId) {
-          // ✅ URL에 세션 ID가 있으면 → 무조건 해당 세션 사용
-          sess = { sessionId: numericSessionId };
+        if (resolvedSessionId) {
+          // ✅ 기록 열기 or 새로고침
+          sess = { sessionId: resolvedSessionId };
+
+          // ⭐ URL이 /checklist/pre 인 경우만 정규화
+          if (!paramSessionId) {
+            navigate(
+              `/checklists/pre/session/${resolvedSessionId}`,
+              { replace: true }
+            );
+            return; // URL 바뀌면서 effect 재실행
+          }
+
         } else {
-          // ✅ URL에 세션 ID가 없을 때만 신규 생성
+          // ✅ 진짜 신규 시작
           const created = await startSession(memberId);
 
-          // 🔥 생성 즉시 URL 고정 (F5 대비 핵심)
           navigate(
             `/checklists/pre/session/${created.sessionId}`,
             { replace: true }
           );
-
-          // ❗ URL이 바뀌면서 useEffect가 다시 실행되므로
-          //    여기서 더 진행하면 중복 호출됨 → 즉시 종료
           return;
         }
 
@@ -174,7 +190,7 @@ export default function PreChecklistPage() {
         setLoading(false);
       }
     })();
-  }, [navigate, memberId, numericSessionId]);
+  }, [memberId, resolvedSessionId, paramSessionId]);
 
   const progress = useMemo(() => {
     const total = data?.items?.length ?? 0;
@@ -191,6 +207,10 @@ export default function PreChecklistPage() {
 
   // ✅ 번쩍임 방지: 클릭한 행만 잠깐 잠금
   const applyStatus = async (itemId, nextStatus) => {
+    if (isCompleted) {
+      return;
+    }
+
     if (!session?.sessionId) {
       setError("세션이 아직 준비되지 않았습니다. 잠시 후 다시 시도해주세요.");
       return;
@@ -222,6 +242,8 @@ export default function PreChecklistPage() {
   };
 
   const handleSaveExit = async () => {
+    if (isCompleted) return;
+
     if (!session?.sessionId) return;
 
     try {
@@ -255,6 +277,8 @@ export default function PreChecklistPage() {
 
 
   const resetAll = async () => {
+    if (isCompleted) return;
+
     if (!session?.sessionId) {
       setError("세션이 아직 준비되지 않았습니다.");
       return;
@@ -314,7 +338,10 @@ export default function PreChecklistPage() {
           <div className="p-4 rounded-5 shadow-sm border text-danger">
             에러: {String(error)}
           </div>
-          <button className="btn btn-outline-secondary mt-3" onClick={() => navigate("/checklist")}>
+          <button
+            className="btn btn-sm btn-outline-secondary rounded-pill"
+            onClick={goBack}
+          >
             뒤로가기
           </button>
         </div>
@@ -353,13 +380,19 @@ export default function PreChecklistPage() {
       {/* 상단 바 */}
       <nav className="navbar navbar-light bg-white border-bottom sticky-top py-3 shadow-sm">
         <div className="container d-flex align-items-center justify-content-between">
-          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={() => navigate("/checklist")}>
+          <button className="btn btn-sm btn-outline-secondary rounded-pill" onClick={goBack}>
             뒤로가기
           </button>
 
           <div className="d-flex align-items-center gap-2 fw-bold" style={{ color: "#059669" }}>
             <ClipboardCheck className="me-1" />
             사전 체크리스트
+
+            {isCompleted && (
+              <span className="badge bg-secondary ms-2">
+                완료됨
+              </span>
+            )}
           </div>
 
           <div className="d-flex align-items-center gap-2">
@@ -445,7 +478,7 @@ export default function PreChecklistPage() {
                               type="radio"
                               name={name}
                               checked={status === "DONE"}
-                              disabled={busyItemId} // 또는 rowBusy/busyItemId 로 바꿨으면 거기에 맞춰 사용
+                              disabled={busyItemId || isCompleted}
                               onClick={(e) => {
                                 e.preventDefault(); // ✅ 라디오 기본 동작 막고 우리가 상태를 바꿈
                                 applyStatus(item.itemId, status === "DONE" ? "NOT_DONE" : "DONE");
@@ -460,7 +493,7 @@ export default function PreChecklistPage() {
                               type="radio"
                               name={name}
                               checked={status === "NOT_DONE"}
-                              disabled={busyItemId}
+                              disabled={busyItemId || isCompleted}
                               onClick={(e) => {
                                 e.preventDefault();
                                 applyStatus(item.itemId, status === "NOT_DONE" ? "DONE" : "NOT_DONE");
@@ -516,7 +549,7 @@ export default function PreChecklistPage() {
 
                       {/* 항목 제목 + 중요도 */}
                       <div className="fw-semibold">
-                        {item.title} · 중요도 {(item.importanceScore * 100).toFixed(0)}%
+                        {item.title} · 중요도 {item.importanceScore}%
                       </div>
 
                       {/* AI 근거 */}
@@ -659,72 +692,81 @@ export default function PreChecklistPage() {
                 • <b>저장</b>: 중간까지 점검한 내용을 저장하고, 나중에 이어서 할 수 있어요.<br />
                 • <b>완료</b>: 사전 점검을 끝냈다고 확정하며, 이후 사후 체크리스트 유형이 결정돼요.
               </div>
-              <div className="d-flex justify-content-center gap-2 mt-3">
+              {!isCompleted && (
+                <div className="d-flex justify-content-center gap-2 mt-3">
 
-                <button
-                  className="btn btn-outline-emerald rounded-pill fw-bold px-4"
-                  onClick={resetAll}
-                  disabled={isBusy}
-                >
-                  초기화
-                </button>
+                  <button
+                    className="btn btn-outline-emerald rounded-pill fw-bold px-4"
+                    onClick={resetAll}
+                    disabled={isBusy}
+                  >
+                    초기화
+                  </button>
 
-                <button
-                  className="btn btn-outline-secondary rounded-pill fw-bold px-4"
-                  disabled={isBusy}
-                  onClick={handleSaveExit}
-                >
-                  저장
-                </button>
+                  <button
+                    className="btn btn-outline-secondary rounded-pill fw-bold px-4"
+                    disabled={isBusy}
+                    onClick={handleSaveExit}
+                  >
+                    저장
+                  </button>
 
-                <button
-                  className="btn btn-emerald rounded-pill fw-bold px-4 text-white"
-                  disabled={
-                    isBusy ||
-                    summary?.requiredNotDone > 0
-                  }
-                  onClick={async () => {
-                    if (!window.confirm("사전 체크리스트를 완료하시겠어요?")) return;
+                  <button
+                    className="btn btn-emerald rounded-pill fw-bold px-4 text-white"
+                    disabled={isBusy}
+                    onClick={async () => {
+                      if (isCompleted) return;
 
-                    try {
-                      setCalculating(true);       // ⭐ 1️⃣ 계산 시작 UI
-                      setCalculationDone(false);
+                      if (!window.confirm("사전 체크리스트를 완료하시겠어요?")) return;
 
-                      // 1️⃣ 최종 sync
-                      await axiosInstance.patch(
-                        `/checklists/pre/session/${session.sessionId}/sync`,
-                        {
-                          items: Object.entries(checks).map(([itemId, status]) => ({
-                            itemId: Number(itemId),
-                            checkStatus: status,
-                          }))
-                        }
-                      );
+                      try {
+                        setCalculating(true);
+                        setCalculationDone(false);
 
-                      // 2️⃣ 완료 처리
-                      await completePreSession(session.sessionId);
+                        // 1️⃣ 최종 sync
+                        await axiosInstance.patch(
+                          `/checklists/pre/session/${session.sessionId}/sync`,
+                          {
+                            items: Object.entries(checks).map(([itemId, status]) => ({
+                              itemId: Number(itemId),
+                              checkStatus: status,
+                            })),
+                          }
+                        );
 
-                      // 3️⃣ AI 결과 조회 (FastAPI 포함)
-                      const result = await loadPreResult(session.sessionId);
+                        // 2️⃣ 완료 처리
+                        await completePreSession(session.sessionId);
 
-                      setPreResult({
-                        postGroupCode: result.postGroupCode,
-                        summary: result.riskExplanation.summary,
-                        actions: result.riskExplanation.actions,
-                        analysisItems: result.riskAnalysisItems, // ⭐ 핵심
-                      });
+                        // 3️⃣ AI 결과 조회
+                        const result = await loadPreResult(session.sessionId);
 
-                      setCalculationDone(true);   // ⭐ 2️⃣ 계산 완료
-                    } catch (e) {
-                      alert("결과 계산 중 오류가 발생했습니다.");
-                    } finally {
-                      setCalculating(false);
-                    }
-                  }}
-                >
-                  완료
-                </button>
-              </div>
+                        setPreResult({
+                          postGroupCode: result.postGroupCode,
+                          summary: result.riskExplanation.summary,
+                          actions: result.riskExplanation.actions,
+                          analysisItems: result.riskAnalysisItems,
+                        });
+
+                        setCalculationDone(true);
+                      } catch (e) {
+                        alert("결과 계산 중 오류가 발생했습니다.");
+                      } finally {
+                        setCalculating(false);
+                      }
+                    }}
+                  >
+                    완료
+                  </button>
+
+                </div>
+              )}
+              {/* 완료된 세션 안내 */}
+              {isCompleted && (
+                <div className="alert alert-secondary text-center mt-3">
+                  이 사전 체크리스트는 이미 완료된 기록입니다.<br />
+                  내용은 확인만 가능하며 수정할 수 없습니다.
+                </div>
+              )}
             </div>
           </div>
         </div>

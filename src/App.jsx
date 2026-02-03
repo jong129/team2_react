@@ -66,16 +66,19 @@ function App() {
         <Routes>
           <Route path='/' element={<Home isLoggedIn={isLoggedIn} />} />
           <Route path='/checklist' element={<ChecklistHome />} />
-          <Route path="/checklists/pre/session" element={<PreChecklistPage />} />
+          <Route path="/checklist/pre" element={<PreChecklistPage />} />
           <Route path="/checklists/pre/session/:sessionId" element={<PreChecklistPage />} />
           <Route path="/checklist/history" element={<HistoryPage />} />
+          {/* ✅ 사전 체크리스트 */}
+          <Route path="/checklist/pre" element={<PreChecklistPage />} />
+          {/* ✅ 사후 체크리스트 (세션 기반) */}
           <Route path="/checklists/post/session/:postSessionId" element={<PostChecklistPage />} />
           <Route path="/admin/checklist" element={<AdminChecklistManage />} />
           <Route path="/admin/checklists/templates" element={<AdminChecklistTemplatesPage />} />
           <Route path="/admin/checklists/templates/:templateId/edit" element={<AdminChecklistTemplateEditPage />} />
           <Route path="/admin/ai/post" element={<AdminPostChecklistAiPanel />} />
           <Route path="/admin/ai/post/improve/:templateId" element={<AdminPostChecklistAiImprovePage />} />
-          <Route path="/admin/ai/post-decision-test" element={<AdminPostDecisionTestPage />}/>
+          <Route path="/admin/ai/post-decision-test" element={<AdminPostDecisionTestPage />} />
           <Route path="/document" element={<Document />} />
           <Route path='/login' element={<Member_Login />} />
           <Route path="/member_membership" element={<Member_Membership />} />
@@ -100,7 +103,7 @@ function App() {
           <Route path="/member/inquiries" element={<Member_Inquiries />} />
           <Route path="/admin/inquiries_reply" element={<Admin_inquiries_reply />} />
           <Route path="/admin/reports" element={<AdminReportLog />} />
-          
+
           {/* RAG 전용 챗 페이지 */}
           <Route path="/aibot" element={<MemberChatPage />} />
           <Route path="/admin/chat" element={<AdminChatPage />} />
