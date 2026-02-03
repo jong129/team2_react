@@ -4,8 +4,9 @@ const getIP = () => {
   // return "localhost";
   // return "121.160.42.13"; // 팀장 학원 주소
   // return "121.160.42.21"; 
-  return "121.160.42.81";
-  // return "121.160.42.28";
+  //return "121.160.42.81";
+  // return "121.160.42.36";
+   return "10.100.0.197";
 }
 
 const getCopyright = () => {

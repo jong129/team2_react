@@ -1,7 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { axiosInstance } from "../Tool";
-import { Settings, KeyRound, User, AlertTriangle, Save } from "lucide-react";
+import {
+  Settings,
+  KeyRound,
+  User,
+  AlertTriangle,
+  Save,
+  Phone,
+} from "lucide-react";
 
 const Member_Mypage_Update = () => {
   const navigate = useNavigate();
@@ -10,6 +17,8 @@ const Member_Mypage_Update = () => {
   const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
+
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
 
@@ -24,6 +33,7 @@ const Member_Mypage_Update = () => {
       const res = await axiosInstance.get("/mypage/me");
       setMe(res.data);
       setName(res.data?.name || "");
+      setPhone(res.data?.phone || "");
     } catch (e) {
       const status = e.response?.status;
       if (status === 401) setErr("로그인이 필요합니다.");
@@ -58,6 +68,27 @@ const Member_Mypage_Update = () => {
     }
   };
 
+  const handleUpdatePhone = async () => {
+    setErr("");
+    setMsg("");
+
+    const v = phone.trim();
+    if (!v) {
+      setErr("전화번호를 입력하세요.");
+      return;
+    }
+
+    try {
+      await axiosInstance.put("/mypage/profile/phone", { phone: v });
+      setMsg("전화번호가 변경되었습니다.");
+      await loadMe();
+    } catch (e) {
+      const status = e.response?.status;
+      if (status === 401) setErr("로그인이 필요합니다.");
+      else setErr(e.response?.data?.message || "전화번호 변경 실패");
+    }
+  };
+
   const handleWithdraw = async () => {
     setErr("");
     setMsg("");
@@ -88,7 +119,6 @@ const Member_Mypage_Update = () => {
   return (
     <div className="bg-white" style={{ fontFamily: "'Pretendard', sans-serif" }}>
       <div className="container py-5" style={{ maxWidth: 980 }}>
-
         {/* 헤더 */}
         <div className="d-flex align-items-center justify-content-between mb-4">
           <div>
@@ -96,7 +126,7 @@ const Member_Mypage_Update = () => {
               <Settings className="me-2" size={20} />
               프로필 수정
             </div>
-            <h2 className="fw-extrabold mb-0">이름 변경 / 회원탈퇴</h2>
+            <h2 className="fw-extrabold mb-0">이름 변경 / 전화번호 변경 / 회원탈퇴</h2>
             <div className="text-secondary small mt-1">
               필수 정보만 안전하게 변경할 수 있습니다.
             </div>
@@ -139,14 +169,24 @@ const Member_Mypage_Update = () => {
               <div className="card border-0 shadow-sm rounded-5 p-4">
                 <h5 className="fw-bold mb-3">내 정보</h5>
 
-                <div className="mb-2"><span className="text-secondary">아이디</span> <span className="fw-semibold ms-2">{me.loginId}</span></div>
-                <div className="mb-2"><span className="text-secondary">이메일</span> <span className="fw-semibold ms-2">{me.email}</span></div>
-                <div className="mb-2"><span className="text-secondary">전화번호</span> <span className="fw-semibold ms-2">{me.phone}</span></div>
+                <div className="mb-2">
+                  <span className="text-secondary">아이디</span>{" "}
+                  <span className="fw-semibold ms-2">{me.loginId}</span>
+                </div>
+                <div className="mb-2">
+                  <span className="text-secondary">이메일</span>{" "}
+                  <span className="fw-semibold ms-2">{me.email}</span>
+                </div>
+                <div className="mb-2">
+                  <span className="text-secondary">전화번호</span>{" "}
+                  <span className="fw-semibold ms-2">{me.phone}</span>
+                </div>
               </div>
             </div>
 
-            {/* 이름 변경 카드 */}
+            {/* 수정 카드들 */}
             <div className="col-lg-7">
+              {/* 이름 변경 카드 */}
               <div className="card border-0 shadow-sm rounded-5 p-4">
                 <h5 className="fw-bold mb-3">이름 변경</h5>
 
@@ -172,11 +212,49 @@ const Member_Mypage_Update = () => {
                 </div>
               </div>
 
+              {/* 전화번호 변경 카드 */}
+              <div className="card border-0 shadow-sm rounded-5 p-4 mt-4">
+                <div className="d-flex align-items-center mb-3">
+                  <Phone size={18} className="me-2" style={{ color: "#059669" }} />
+                  <h5 className="fw-bold mb-0">전화번호 변경</h5>
+                </div>
+
+                <div className="row g-2 align-items-center">
+                  <div className="col-md-8">
+                    <input
+                      type="text"
+                      className="form-control rounded-pill px-3 py-2"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      placeholder="전화번호"
+                    />
+                  </div>
+                  <div className="col-md-4 d-grid">
+                    <button
+                      className="btn btn-emerald rounded-pill fw-bold text-white"
+                      onClick={handleUpdatePhone}
+                    >
+                      <Save size={18} className="me-2" />
+                      저장
+                    </button>
+                  </div>
+                </div>
+              </div>
+
               {/* 회원탈퇴 카드 */}
-              <div className="card border-0 shadow-sm rounded-5 p-4 mt-4" style={{ border: "1px solid #fecaca" }}>
+              <div
+                className="card border-0 shadow-sm rounded-5 p-4 mt-4"
+                style={{ border: "1px solid #fecaca" }}
+              >
                 <div className="d-flex align-items-center mb-2">
-                  <AlertTriangle size={20} className="me-2" style={{ color: "#dc2626" }} />
-                  <h5 className="fw-bold mb-0" style={{ color: "#dc2626" }}>회원탈퇴</h5>
+                  <AlertTriangle
+                    size={20}
+                    className="me-2"
+                    style={{ color: "#dc2626" }}
+                  />
+                  <h5 className="fw-bold mb-0" style={{ color: "#dc2626" }}>
+                    회원탈퇴
+                  </h5>
                 </div>
 
                 <div className="text-secondary small mb-3">
@@ -216,7 +294,6 @@ const Member_Mypage_Update = () => {
                   </div>
                 </div>
               </div>
-
             </div>
           </div>
         )}

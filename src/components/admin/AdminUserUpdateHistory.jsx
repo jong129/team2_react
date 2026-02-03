@@ -142,7 +142,7 @@ const AdminUserUpdateHistory = () => {
             <div className="col-md-5">
               <input
                 className="form-control"
-                placeholder="검색 (대상/수정자 아이디·이름 / 값)"
+                placeholder="검색"
                 value={keyword}
                 onChange={(e) => setKeyword(e.target.value)}
                 onKeyDown={onKeyDown}
@@ -153,7 +153,6 @@ const AdminUserUpdateHistory = () => {
               <select className="form-select" value={fieldName} onChange={(e) => setFieldName(e.target.value)}>
                 <option value="">FIELD 전체</option>
                 <option value="NAME">NAME</option>
-                <option value="EMAIL">EMAIL</option>
                 <option value="PHONE">PHONE</option>
               </select>
             </div>
