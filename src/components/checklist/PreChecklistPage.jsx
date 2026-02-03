@@ -18,7 +18,7 @@ export default function PreChecklistPage() {
   const [checks, setChecks] = useState({});
 
   const isCompleted = data && data.status === "COMPLETED";
-  
+
   // ✅ 사전 체크 완료 후 결과 표시용
   const [preResult, setPreResult] = useState(null);
 
@@ -582,8 +582,14 @@ export default function PreChecklistPage() {
                 >
                   <div className="fw-bold mb-2">
                     {preResult.postGroupCode === "POST_B"
-                      ? "⚠️ 사전 점검 결과 안내"
-                      : "✅ 사전 점검 완료"}
+                      ? "⚠️ 위험 점검 유형 안내"
+                      : "✅ 일반 점검 유형 안내"}
+                  </div>
+
+                  <div className="small text-muted mb-2">
+                    {preResult.postGroupCode === "POST_B"
+                      ? "일부 항목에서 위험도가 높게 판단되어, 보다 상세한 사후 점검이 필요합니다."
+                      : "전반적으로 안정적인 상태로 판단되어, 기본 사후 점검으로 안내됩니다."}
                   </div>
 
                   {/* ✅ 요약 문장 */}
@@ -663,7 +669,11 @@ export default function PreChecklistPage() {
                         }
                       }}
                     >
-                      {startingPost ? "이동 중..." : "사후 체크리스트로 이동"}
+                      {startingPost
+                        ? "이동 중..."
+                        : preResult.postGroupCode === "POST_B"
+                          ? "위험 점검 유형으로 이동"
+                          : "일반 점검 유형으로 이동"}
                     </button>
                   </div>
                 </div>
